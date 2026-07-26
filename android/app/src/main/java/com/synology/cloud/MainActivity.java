@@ -21,6 +21,7 @@ import io.flutter.plugin.common.MethodChannel;
 
 public class MainActivity extends FlutterActivity {
     private static final String SHARE_CHANNEL = "app.share_intents";
+    private static final String NAV_CHANNEL = "app.navigation";
     private static final String TAG = "ShareIntent";
     private MethodChannel channel;
 
@@ -28,6 +29,17 @@ public class MainActivity extends FlutterActivity {
     public void configureFlutterEngine(FlutterEngine flutterEngine) {
         super.configureFlutterEngine(flutterEngine);
         channel = new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), SHARE_CHANNEL);
+
+        // 返回键最小化 App（回到桌面而非退出进程）
+        new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), NAV_CHANNEL)
+                .setMethodCallHandler((call, result) -> {
+                    if ("moveTaskToBack".equals(call.method)) {
+                        moveTaskToBack(true);
+                        result.success(true);
+                    } else {
+                        result.notImplemented();
+                    }
+                });
 
         Log.d(TAG, "configureFlutterEngine, intent="
                 + (getIntent() == null ? "null" : getIntent().getAction()));

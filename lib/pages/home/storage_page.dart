@@ -126,7 +126,7 @@ class _StoragePageState extends State<StoragePage> {
                   widthFactor: pct / 100,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: pct > 90 ? Colors.red : pct > 70 ? Colors.orange : Colors.green,
+                      color: pct > 90 ? Colors.red : pct > 80 ? Colors.amber : Colors.green,
                       borderRadius: BorderRadius.circular(5.r),
                     ),
                   ),

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 import '../../network/dsm_api.dart';
 import '../../utils/app_preferences.dart';
 
@@ -81,15 +82,6 @@ class _WebViewPageState extends State<WebViewPage> {
                 _errorMessage = null;
               });
             }
-            // Inject viewport early (before page finishes rendering)
-            _controller.runJavaScript(
-              'document.addEventListener(\'DOMContentLoaded\', function() { '
-              'var vp = document.querySelector(\'meta[name="viewport"]\'); '
-              'if (vp) { vp.setAttribute(\'content\', \'width=device-width, initial-scale=1.0, minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes\'); } '
-              'else { var meta = document.createElement(\'meta\'); meta.name = \'viewport\'; '
-              'meta.content = \'width=device-width, initial-scale=1.0, minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes\'; '
-              'document.head.appendChild(meta); } }, false);',
-            );
           },
           onPageFinished: (url) {
             debugPrint('[WebView] onPageFinished: $url');
@@ -99,19 +91,6 @@ class _WebViewPageState extends State<WebViewPage> {
                 _currentUrl = url;
               });
             }
-            // Re-apply viewport meta override + add CSS touch-action
-            _controller.runJavaScript(
-              '(function() { '
-              'var vp = document.querySelector(\'meta[name="viewport"]\'); '
-              'if (vp) { vp.setAttribute(\'content\', \'width=device-width, initial-scale=1.0, minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes\'); } '
-              'else { var meta = document.createElement(\'meta\'); meta.name = \'viewport\'; '
-              'meta.content = \'width=device-width, initial-scale=1.0, minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes\'; '
-              'document.head.appendChild(meta); } '
-              'document.body.style.touchAction = \'pinch-zoom pan-x pan-y\'; '
-              'var style = document.createElement(\'style\'); style.textContent = \'body{overflow:auto!important;-webkit-overflow-scrolling:touch}\'; '
-              'document.head.appendChild(style); '
-              '})()',
-            );
           },
           onWebResourceError: (error) {
             debugPrint('[WebView] onWebResourceError: '
@@ -133,7 +112,13 @@ class _WebViewPageState extends State<WebViewPage> {
         ),
       );
 
-    // Slight delay to ensure the widget tree is laid out before loading
+    // Android 默认 useWideViewPort=false，会把布局视口锁死为设备宽度，
+    // 桌面布局页面（如 DSM 主页）只能显示一部分；开启后与系统浏览器行为一致：
+    // 按页面天然宽度排版并整页缩放适配屏幕（loadWithOverviewMode 默认已开启）。
+    final platform = _controller.platform;
+    if (platform is AndroidWebViewController) {
+      platform.setUseWideViewPort(true);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final resolvedUrl = DsmApi().resolveUrlWithAuth(widget.url);
       _controller.loadRequest(Uri.parse(resolvedUrl));
@@ -159,15 +144,29 @@ class _WebViewPageState extends State<WebViewPage> {
 
   // ---------- build ----------
 
+  /// Android 默认用纹理模式(TLHC)渲染 WebView，触摸事件是合成转发的，
+  /// 缩放页面内滚动会出现「滑动不跟手、松手后回弹跳位」；改用 Hybrid
+  /// Composition 让原生 WebView 直接接收触摸事件，滚动行为与浏览器一致。
+  Widget _buildWebView() {
+    final platform = _controller.platform;
+    if (platform is AndroidWebViewController) {
+      return WebViewWidget.fromPlatformCreationParams(
+        params: AndroidWebViewWidgetCreationParams(
+          controller: platform,
+          displayWithHybridComposition: true,
+        ),
+      );
+    }
+    return WebViewWidget(controller: _controller);
+  }
+
   @override
   Widget build(BuildContext context) {
     final body = Stack(
       children: [
         // WebView – always SizedBox.expand so it fills the parent
         SizedBox.expand(
-          child: _hasError
-              ? _buildErrorWidget()
-              : WebViewWidget(controller: _controller),
+          child: _hasError ? _buildErrorWidget() : _buildWebView(),
         ),
         // progress bar
         if (_isLoading)

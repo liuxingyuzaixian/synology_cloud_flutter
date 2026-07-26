@@ -6,9 +6,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:synology_cloud_flutter/pages/files/favorites_page.dart';
 import 'package:synology_cloud_flutter/pages/files/remote_folder_page.dart';
 import 'package:synology_cloud_flutter/pages/files/share_manager_page.dart';
@@ -344,7 +346,7 @@ class _FilesPageState extends State<FilesPage> with AutomaticKeepAliveClientMixi
   /// Main body content
   Widget _buildBody() {
     if (_ctrl.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildSkeletonList();
     }
     if (_ctrl.error != null) {
       return _buildError();
@@ -356,6 +358,40 @@ class _FilesPageState extends State<FilesPage> with AutomaticKeepAliveClientMixi
     return RefreshIndicator(
       onRefresh: _ctrl.refresh,
       child: _buildList(files),
+    );
+  }
+
+  /// 首次加载骨架屏：模拟文件列表行
+  Widget _buildSkeletonList() {
+    return Skeletonizer(
+      child: ListView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 12,
+        itemBuilder: (context, index) => Container(
+          padding: EdgeInsets.symmetric(horizontal: 16.aw, vertical: 10.h),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: Colors.grey.shade100, width: 0.5),
+            ),
+          ),
+          child: Row(
+            children: [
+              Bone.square(size: 36.r, borderRadius: BorderRadius.circular(8.r)),
+              SizedBox(width: 12.aw),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Bone.text(words: 2, fontSize: 14.asp),
+                    SizedBox(height: 4.h),
+                    Bone.text(words: 3, fontSize: 11.asp),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -401,16 +437,18 @@ class _FilesPageState extends State<FilesPage> with AutomaticKeepAliveClientMixi
   // ==================== List View ====================
 
   Widget _buildList(List<FileModel> files) {
-    return ListView.builder(
-      padding: EdgeInsets.only(bottom: 80.h),
-      itemCount: files.length,
-      itemBuilder: (context, index) => _buildListItem(files[index], index),
+    return SlidableAutoCloseBehavior(
+      child: ListView.builder(
+        padding: EdgeInsets.only(bottom: 80.h),
+        itemCount: files.length,
+        itemBuilder: (context, index) => _buildListItem(files[index], index),
+      ),
     );
   }
 
   Widget _buildListItem(FileModel file, int index) {
     final isSelected = _selectedIndices.contains(index);
-    return InkWell(
+    final row = InkWell(
       onTap: _selectMode ? () => _toggleSelect(index) : () => _onFileTap(file),
       onDoubleTap: _selectMode ? null : () => _onFileDoubleTap(file),
       onLongPress: () => _toggleSelect(index),
@@ -461,6 +499,40 @@ class _FilesPageState extends State<FilesPage> with AutomaticKeepAliveClientMixi
           ],
         ),
       ),
+    );
+    // 多选模式下禁用左滑，避免与选择手势冲突
+    if (_selectMode) return row;
+    return Slidable(
+      key: ValueKey(file.path),
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        extentRatio: file.isDir ? 0.45 : 0.6,
+        children: [
+          if (!file.isDir)
+            SlidableAction(
+              onPressed: (_) => _downloadFile(file),
+              backgroundColor: const Color(0xFF3B82F6),
+              foregroundColor: Colors.white,
+              icon: Icons.download,
+              label: '下载',
+            ),
+          SlidableAction(
+            onPressed: (_) => _renameFile(file),
+            backgroundColor: const Color(0xFFF59E0B),
+            foregroundColor: Colors.white,
+            icon: Icons.edit,
+            label: '重命名',
+          ),
+          SlidableAction(
+            onPressed: (_) => _deleteFile(file),
+            backgroundColor: const Color(0xFFEF4444),
+            foregroundColor: Colors.white,
+            icon: Icons.delete,
+            label: '删除',
+          ),
+        ],
+      ),
+      child: row,
     );
   }
 
@@ -591,6 +663,12 @@ class _FilesPageState extends State<FilesPage> with AutomaticKeepAliveClientMixi
       _ctrl.navigateTo(file.path);
       return;
     }
+    // 视频直接进内置播放器流式播放，无需等待双击判定
+    if (file.fileType == FileTypeEnum.movie) {
+      _tapTimer?.cancel();
+      _openWithBuiltInViewer(file);
+      return;
+    }
     // Single tap: delayed to detect double-tap
     _tapTimer?.cancel();
     _tapTimer = Timer(const Duration(milliseconds: 300), () {
@@ -601,6 +679,11 @@ class _FilesPageState extends State<FilesPage> with AutomaticKeepAliveClientMixi
   void _onFileDoubleTap(FileModel file) {
     if (file.isDir) return;
     _tapTimer?.cancel();
+    // 视频双击同样走内置流式播放器，避免先下载再用系统应用播放
+    if (file.fileType == FileTypeEnum.movie) {
+      _openWithBuiltInViewer(file);
+      return;
+    }
     _openWithSystemDefault(file);
   }
 

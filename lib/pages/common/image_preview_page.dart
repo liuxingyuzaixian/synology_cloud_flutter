@@ -11,6 +11,7 @@ import 'package:photo_view/photo_view.dart';
 import 'package:gal/gal.dart';
 import '../../components/app_video.dart';
 import '../../network/video_cache.dart';
+import '../../utils/app_logger.dart';
 import '../../utils/media_cache.dart';
 import '../../utils/fly_router.dart';
 
@@ -164,6 +165,11 @@ class _ImagePreviewPageState extends State<ImagePreviewPage>
   bool _videoReady = false;
   bool _videoError = false;
   bool _videoRequested = false;
+  // Monotonic token: bumped on page change / re-open so stale async opens and
+  // error listeners from a disposed player can detect they are outdated
+  // (disposing a player fires its error stream, which used to re-trigger the
+  // fallback and replay the previous video's audio on the next page).
+  int _videoSession = 0;
 
   // ---- download ----
   double? _downloadProgress;
@@ -214,9 +220,12 @@ class _ImagePreviewPageState extends State<ImagePreviewPage>
   // ---- page change ----
 
   void _onPageChanged(int index) {
+    AppLogger.d('Preview',
+        '切页 -> $index, 销毁旧播放器(session=$_videoSession, player=${_player != null})');
     setState(() {
       _currentIndex = index;
       _pointerCount = 0;
+      _videoSession++; // invalidate any in-flight open / stale error listener
       _completedSub?.cancel();
       _completedSub = null;
       if (_recordingUrl != null) {
@@ -245,6 +254,8 @@ class _ImagePreviewPageState extends State<ImagePreviewPage>
 
   Future<void> _startVideo(PreviewPhoto photo) async {
     if (_videoRequested) return;
+    final session = ++_videoSession;
+    AppLogger.d('Preview', '起播请求 session=$session file=${photo.filename}');
     setState(() {
       _videoRequested = true;
       _videoReady = false;
@@ -259,29 +270,40 @@ class _ImagePreviewPageState extends State<ImagePreviewPage>
     final streamUrl = photo.videoUrl ?? photo.fullUrl;
     final canFallback =
         photo.videoFallbackUrl != null && photo.videoFallbackUrl != streamUrl;
-    await _openVideo(photo, streamUrl, allowFallback: canFallback);
+    await _openVideo(photo, streamUrl,
+        allowFallback: canFallback, session: session);
   }
 
   Future<void> _openVideo(
     PreviewPhoto photo,
     String url, {
     required bool allowFallback,
+    required int session,
     Duration? seekTo,
   }) async {
     try {
       await _player?.dispose();
+      if (!mounted || session != _videoSession) {
+        AppLogger.d('Preview', '打开中止(会话过期) session=$session cur=$_videoSession');
+        return;
+      }
 
       final player = Player();
       final controller = VideoController(player);
       _player = player;
       _mediaController = controller;
+      AppLogger.d('Preview', '创建播放器 session=$session url=$url');
 
       // On error: the transcoded stream may be missing (404) → retry with the
-      // original file; otherwise surface the error in the UI.
-      player.stream.error.listen((_) {
-        if (!mounted) return;
+      // original file; otherwise surface the error in the UI. Disposing a
+      // player also fires this stream — the session check keeps a stale
+      // listener from restarting playback after the page has changed.
+      player.stream.error.listen((e) {
+        AppLogger.w('Preview',
+            '播放器error session=$session cur=$_videoSession msg=$e');
+        if (!mounted || session != _videoSession) return;
         if (allowFallback) {
-          _fallbackVideo(photo);
+          _fallbackVideo(photo, session);
         } else {
           setState(() => _videoError = true);
         }
@@ -297,6 +319,14 @@ class _ImagePreviewPageState extends State<ImagePreviewPage>
       // the streamed bytes to a local file for next time (zero extra
       // bandwidth), promoting it to the cache once the clip plays through.
       final cachedPath = await VideoCache.cachedPath(url);
+      if (!mounted || session != _videoSession) {
+        if (identical(_player, player)) {
+          await player.dispose();
+          _player = null;
+          _mediaController = null;
+        }
+        return;
+      }
       if (cachedPath == null) {
         await VideoCache.discardPart(url);
         final part = await VideoCache.partFile(url);
@@ -315,10 +345,13 @@ class _ImagePreviewPageState extends State<ImagePreviewPage>
           : Media(url, httpHeaders: photo.headers);
 
       await player.open(media, play: true);
-      if (!mounted) {
-        await player.dispose();
-        _player = null;
-        _mediaController = null;
+      if (!mounted || session != _videoSession) {
+        AppLogger.d('Preview', 'open后会话过期，销毁 session=$session cur=$_videoSession');
+        if (identical(_player, player)) {
+          await player.dispose();
+          _player = null;
+          _mediaController = null;
+        }
         return;
       }
 
@@ -331,16 +364,19 @@ class _ImagePreviewPageState extends State<ImagePreviewPage>
 
       setState(() => _videoReady = true);
     } catch (_) {
+      if (!mounted || session != _videoSession) return;
       if (allowFallback) {
-        _fallbackVideo(photo);
-      } else if (mounted) {
+        _fallbackVideo(photo, session);
+      } else {
         setState(() => _videoError = true);
       }
     }
   }
 
-  void _fallbackVideo(PreviewPhoto photo) {
+  void _fallbackVideo(PreviewPhoto photo, int session) {
+    if (session != _videoSession) return; // page changed — stale request
     if (_triedFallback) return; // avoid double-retry from repeated error events
+    AppLogger.d('Preview', '回退到原画 session=$session file=${photo.filename}');
     _triedFallback = true;
     _usingOriginal = true; // we're now playing the original file
     final fb = photo.videoFallbackUrl;
@@ -355,7 +391,7 @@ class _ImagePreviewPageState extends State<ImagePreviewPage>
       VideoCache.discardPart(_recordingUrl!);
       _recordingUrl = null;
     }
-    _openVideo(photo, fb, allowFallback: false);
+    _openVideo(photo, fb, allowFallback: false, session: session);
   }
 
   /// Manually switch between the low-bitrate transcoded stream and the original
@@ -368,13 +404,15 @@ class _ImagePreviewPageState extends State<ImagePreviewPage>
     if (originalUrl == null) return;
     final target = _usingOriginal ? streamUrl : originalUrl;
     final pos = _player?.state.position ?? Duration.zero;
+    final session = ++_videoSession; // invalidate the previous source's session
     setState(() {
       _usingOriginal = !_usingOriginal;
       _videoReady = false;
       _videoError = false;
     });
     _triedFallback = true; // manual choice — don't auto-fallback
-    await _openVideo(photo, target, allowFallback: false, seekTo: pos);
+    await _openVideo(photo, target,
+        allowFallback: false, session: session, seekTo: pos);
   }
 
   // ---- download with progress ----
@@ -535,7 +573,9 @@ class _ImagePreviewPageState extends State<ImagePreviewPage>
                   onPageChanged: _onPageChanged,
                   itemBuilder: (context, index) {
                     final photo = photos[index];
-                    return photo.isVideo ? _buildVideoPage(photo) : _buildImagePage(photo, index);
+                    return photo.isVideo
+                        ? _buildVideoPage(photo, index)
+                        : _buildImagePage(photo, index);
                   },
                 ),
               ),
@@ -574,6 +614,7 @@ class _ImagePreviewPageState extends State<ImagePreviewPage>
     final url = photo.videoUrl;
     if (url == null || url.isEmpty) return;
     setState(() => _livePhotoPlaying = true);
+    _videoSession++; // invalidate stale video listeners before reusing _player
     try {
       await _player?.dispose();
       final player = Player();
@@ -596,6 +637,7 @@ class _ImagePreviewPageState extends State<ImagePreviewPage>
 
   void _stopLivePhoto() {
     if (!_livePhotoPlaying) return;
+    _videoSession++;
     _player?.dispose();
     _player = null;
     _mediaController = null;
@@ -738,11 +780,25 @@ class _ImagePreviewPageState extends State<ImagePreviewPage>
 
   // ---- video page ----
 
-  Widget _buildVideoPage(PreviewPhoto photo) {
+  Widget _buildVideoPage(PreviewPhoto photo, int index) {
+    // Off-screen video pages (pre-built neighbours during a swipe / page
+    // transition) must never start playback: after a page change resets
+    // _videoRequested, a rebuild of the *previous* video page used to hit the
+    // auto-start branch below and re-open the old video — audible but
+    // invisible. Render only the poster for them.
+    if (index != _currentIndex) {
+      return CachedNetworkImage(
+        imageUrl: photo.thumbnailUrl,
+        httpHeaders: photo.headers ?? {},
+        fit: BoxFit.contain,
+      );
+    }
+
     if (!_videoRequested) {
       // Auto-start video on first build (initial page, not from swipe)
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_videoRequested) {
+        if (mounted && !_videoRequested && index == _currentIndex) {
+          AppLogger.d('Preview', '首帧自动起播 index=$index');
           _startVideo(photo);
         }
       });

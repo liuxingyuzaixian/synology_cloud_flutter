@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../models/webview_entry.dart';
-import '../components/app_dialog.dart';
 import '../network/dsm_api.dart';
 import '../utils/app_logger.dart';
 import '../utils/app_preferences.dart';
@@ -263,15 +262,16 @@ class _MainTabPageState extends State<MainTabPage> with WidgetsBindingObserver {
       return false;
     }
 
-    // 其他情况：双击退出
+    // 其他情况：2 秒内连按两次返回键才最小化 App（回到桌面，进程保活），
+    // 按一次不做任何反应（无 toast）
     final now = DateTime.now();
     if (_lastBackAt == null ||
         now.difference(_lastBackAt!) > const Duration(seconds: 2)) {
       _lastBackAt = now;
-      AppDialog.toast('再按一次退出App');
       return false;
     }
-    SystemNavigator.pop();
+    _lastBackAt = null;
+    const MethodChannel('app.navigation').invokeMethod('moveTaskToBack');
     return false;
   }
 

@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http_parser/http_parser.dart';
 
 import '../../models/server_model.dart';
 import '../utils/app_preferences.dart';
@@ -1359,16 +1360,21 @@ class DsmApi {
       'version': 2,
     };
     if (type == 'file' && filePath != null) {
+      // DSM7 下 Cookie 认证的写操作需带 SynoToken（CSRF），否则创建失败
+      await refreshSynoToken();
       final torrent = MultipartFile.fromFileSync(
         filePath,
         filename: filePath.split('/').last,
+        contentType: MediaType.parse('application/octet-stream'),
       );
       data['file'] = jsonEncode(['-1891550746']);
       data['type'] = '"$type"';
       data['create_list'] = true;
       data['destination'] = '"$destination"';
+      data['_sid'] = _sid;
       data['-1891550746'] = torrent;
-      return await upload('entry.cgi', data: data);
+      final params = _synoToken.isNotEmpty ? {'SynoToken': _synoToken} : null;
+      return await upload('entry.cgi', params: params, data: data);
     } else {
       final urls = (url ?? '').split('\n').where((u) => u.trim().isNotEmpty).toList();
       data['type'] = '"$type"';

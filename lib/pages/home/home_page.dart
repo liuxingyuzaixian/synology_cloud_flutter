@@ -16,6 +16,7 @@ import '../../models/webview_entry.dart';
 import '../../utils/app_preferences.dart';
 import '../common/album_backup_page.dart';
 import '../common/webview_page.dart';
+import '../notes/note_list_page.dart';
 import 'add_webview_page.dart';
 import 'control_panel_page.dart';
 import 'docker_page.dart';
@@ -533,6 +534,13 @@ class HomePageState extends State<HomePage> with RouteAware {
         subtitle: '系统通知',
         color: Colors.blueGrey,
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotifyPage())),
+      ),
+      _FunctionCategory(
+        icon: Icons.edit_note,
+        name: '记事本',
+        subtitle: '本地便签',
+        color: Colors.indigo,
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NoteListPage())),
       ),
     ];
 

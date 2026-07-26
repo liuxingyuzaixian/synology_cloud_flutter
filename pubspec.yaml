@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.0.12+12
+version: 0.0.13+13
 
 environment:
   sdk: ^3.11.5
@@ -33,11 +33,13 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   dio: ^5.9.0
+  http_parser: ^4.0.0
   flutter_screenutil: ^5.9.3
   permission_handler: ^12.0.1
   shared_preferences: ^2.5.3
   cached_network_image_ce: ^4.1.2
   webview_flutter: ^4.10.0
+  webview_flutter_android: ^4.12.0
   photo_view: ^0.15.0
   # 视频播放：media_kit（libmpv/FFmpeg 内核，秒开 + 格式通吃 + 内置磁盘缓存）
   media_kit: ^1.1.11
@@ -53,6 +55,12 @@ dependencies:
   crypto: ^3.0.6
   gal: ^2.3.0
   photo_manager: ^3.6.4
+  # 公告页 markdown 渲染
+  markdown_widget: ^2.3.2
+  # 列表加载骨架屏
+  skeletonizer: ^2.0.1
+  # 文件列表左滑快捷操作
+  flutter_slidable: ^4.0.0
 
 dev_dependencies:
   flutter_test:

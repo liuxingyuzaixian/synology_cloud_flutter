@@ -259,9 +259,8 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   void _showProofImage(String url) {
-    // baseUrl 为 http://host:4001/api，图片路径为 /uploads/xxx.jpg，取服务器根地址拼接。
-    final serverRoot = LicenseApi.baseUrl.replaceAll(RegExp(r'/api$'), '');
-    final fullUrl = url.startsWith('http') ? url : '$serverRoot$url';
+    // 图片路径为 /uploads/xxx.jpg，取服务器根地址拼接。
+    final fullUrl = url.startsWith('http') ? url : '${LicenseApi.serverRoot}$url';
     showDialog(
       context: context,
       builder: (ctx) => Dialog(

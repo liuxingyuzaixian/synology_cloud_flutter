@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -32,37 +31,19 @@ class UpdateService {
     }
   }
 
-  static int _cachedMinBuild() =>
-      ((_cachedManifest()?['minBuildNumber']) as num?)?.toInt() ?? 0;
-
-  /// 检查更新，force = true 跳过日检测限制
+  /// 检查更新，force = true 表示手动检查（跳过频率限制并提示结果）
   static Future<void> checkForUpdate(BuildContext context, {bool force = false}) async {
     final info = await PackageInfo.fromPlatform();
     final currentBuild = int.tryParse(info.buildNumber) ?? 0;
 
-    // 非强制模式下，检查频率由 auto_check_update 开关控制；
-    // 但缓存 manifest 表明当前版本需强更时不受频率限制，防止重启绕过强更
-    if (!force && _cachedMinBuild() <= currentBuild) {
-      final alwaysCheck = AppPreferences.getBool('auto_check_update');
-      if (!alwaysCheck) {
-        // 关闭开关 = 每天仅检查一次
-        final lastCheck = AppPreferences.getString(kUpdateLastCheckKey);
-        final today = DateTime.now().toIso8601String().substring(0, 10);
-        if (lastCheck == today) {
-          debugPrint('[Update] 今天已检查过更新，跳过');
-          return;
-        }
-      }
-      // 无论开关，记录本次检查日期
-      AppPreferences.putString(kUpdateLastCheckKey, DateTime.now().toIso8601String().substring(0, 10));
-    }
-
+    // 每次都实时拉取 manifest（体积很小），保证服务端强更标记及时生效；
+    // 「每天一次」限制只作用于普通更新的弹窗提醒（见下方），不影响强更判断
     Map<String, dynamic> data;
     try {
       final jsonUrl = Platform.isAndroid ? kUpdateJsonUrlAndroid : kUpdateJsonUrlIos;
       final res = await Dio().get<String>(jsonUrl);
       data = jsonDecode(res.data as String) as Map<String, dynamic>;
-      // 缓存 manifest：下次启动即使断网/被限流，也能依据它拦截强更
+      // 缓存 manifest：断网时仍可依据它拦截强更
       AppPreferences.putString(kUpdateCachedManifestKey, res.data as String);
     } catch (e) {
       if (force) AppDialog.toast('检查更新失败: $e');
@@ -89,7 +70,20 @@ class UpdateService {
         return;
       }
 
-      if (context.mounted) {
+      // 普通更新的弹窗提醒频率：开关关（默认）= 每天最多提醒一次；强更/手动检查不受限
+      if (!force && !forceUpdate) {
+        final today = DateTime.now().toIso8601String().substring(0, 10);
+        final alwaysCheck = AppPreferences.getBool('auto_check_update');
+        if (!alwaysCheck && AppPreferences.getString(kUpdateLastCheckKey) == today) {
+          debugPrint('[Update] 今天已提醒过更新，跳过');
+          return;
+        }
+        AppPreferences.putString(kUpdateLastCheckKey, today);
+      }
+
+      // 强更弹窗无论被什么方式关闭（含被其它路由跳转顶掉）都重新弹出，直到更新完成
+      while (true) {
+        if (!context.mounted) break;
         await _showUpdateDialog(
           context,
           title: title,
@@ -101,6 +95,7 @@ class UpdateService {
           forceUpdate: forceUpdate,
           androidUrl: androidUrl,
         );
+        if (!forceUpdate) break;
       }
     } catch (e) {
       if (force) AppDialog.toast('检查更新失败: $e');
@@ -137,47 +132,12 @@ class UpdateService {
       ),
     );
   }
-
-  static Future<void> _downloadWithProgress(
-    BuildContext context,
-    String url,
-    bool forceUpdate,
-  ) async {
-    try {
-      final dir = await getExternalStorageDirectory();
-      if (dir == null) { AppDialog.toast('无法获取存储目录'); return; }
-      final file = File('${dir.path}/synology_cloud_update.apk');
-
-      // Show the update dialog with progress
-      if (context.mounted) {
-        Navigator.of(context).pop(); // close the first dialog
-      }
-      if (context.mounted) {
-        _showProgressDialog(context, url, file, forceUpdate);
-      }
-    } catch (e) {
-      AppDialog.toast('更新失败: $e');
-    }
-  }
-
-  static void _showProgressDialog(BuildContext context, String url, File file, bool forceUpdate) {
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => _UpdateProgressDialog(
-        url: url,
-        file: file,
-        downloadUrl: url,
-        forceUpdate: forceUpdate,
-      ),
-    );
-  }
 }
 
 // ---------------------------------------------------------------------------
-// Update Dialog Content (仿享脉风格)
+// Update Dialog Content (仿享脉风格，下载进度内嵌，不再开第二个弹窗)
 // ---------------------------------------------------------------------------
-class _UpdateDialogContent extends StatelessWidget {
+class _UpdateDialogContent extends StatefulWidget {
   final String title;
   final String content;
   final String currentVersion;
@@ -199,18 +159,167 @@ class _UpdateDialogContent extends StatelessWidget {
   });
 
   @override
+  State<_UpdateDialogContent> createState() => _UpdateDialogContentState();
+}
+
+class _UpdateDialogContentState extends State<_UpdateDialogContent> {
+  bool _started = false;      // 是否已点过「立即更新」
+  bool _downloading = false;
+  bool _done = false;
+  bool _hasError = false;
+  double _progress = 0;
+  File? _file;
+  CancelToken? _cancelToken;
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _startDownload() async {
+    if (widget.androidUrl.isEmpty) {
+      AppDialog.toast('下载地址为空');
+      return;
+    }
+    File file;
+    try {
+      final dir = await getExternalStorageDirectory();
+      if (dir == null) { AppDialog.toast('无法获取存储目录'); return; }
+      file = File('${dir.path}/synology_cloud_update.apk');
+    } catch (e) {
+      AppDialog.toast('更新失败: $e');
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _started = true;
+      _downloading = true;
+      _done = false;
+      _hasError = false;
+      _progress = 0;
+      _file = file;
+    });
+    _cancelToken = CancelToken();
+    try {
+      await Dio().download(
+        widget.androidUrl,
+        file.path,
+        cancelToken: _cancelToken,
+        onReceiveProgress: (received, total) {
+          if (total > 0 && mounted) {
+            setState(() => _progress = received / total);
+          }
+        },
+      );
+      if (!mounted) return;
+      setState(() {
+        _downloading = false;
+        _done = true;
+        _progress = 1;
+      });
+      AppDialog.toast('下载完成，正在安装...');
+      await _install();
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) return;
+      if (mounted) setState(() { _downloading = false; _hasError = true; });
+    } catch (e) {
+      if (mounted) setState(() { _downloading = false; _hasError = true; });
+    }
+  }
+
+  Future<void> _install() async {
+    final file = _file;
+    if (file == null) return;
+    await OpenFilex.open(file.path, type: 'application/vnd.android.package-archive');
+  }
+
+  /// 按钮区：随下载状态切换；强更时任何状态都没有可关闭弹窗的按钮
+  List<Widget> _buildActionButtons(ThemeData theme) {
+    final outlinedStyle = OutlinedButton.styleFrom(
+      foregroundColor: theme.colorScheme.onSurfaceVariant,
+      side: BorderSide(color: theme.colorScheme.outlineVariant),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+    );
+    final filledStyle = FilledButton.styleFrom(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+    );
+
+    if (_downloading) {
+      // 下载中：强更无任何按钮；普通更新可停止下载（弹窗不关闭）
+      if (widget.forceUpdate) return [];
+      return [
+        OutlinedButton(
+          onPressed: () {
+            _cancelToken?.cancel();
+            setState(() { _started = false; _downloading = false; _progress = 0; });
+          },
+          style: outlinedStyle,
+          child: const Text('取消下载', style: TextStyle(fontSize: 15)),
+        ),
+      ];
+    }
+    if (_hasError) {
+      return [
+        if (!widget.forceUpdate) ...[
+          OutlinedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: outlinedStyle,
+            child: const Text('稍后', style: TextStyle(fontSize: 15)),
+          ),
+          const SizedBox(width: 12),
+        ],
+        FilledButton(
+          onPressed: _startDownload,
+          style: filledStyle,
+          child: const Text('重新下载', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        ),
+      ];
+    }
+    if (_done) {
+      // 下载完成：用户可能取消了系统安装页，提供重新安装入口
+      return [
+        FilledButton(
+          onPressed: _install,
+          style: filledStyle,
+          child: const Text('安装', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        ),
+      ];
+    }
+    // 未开始下载
+    return [
+      if (!widget.forceUpdate) ...[
+        OutlinedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: outlinedStyle,
+          child: const Text('稍后', style: TextStyle(fontSize: 15)),
+        ),
+        const SizedBox(width: 12),
+      ],
+      FilledButton(
+        onPressed: _startDownload,
+        style: filledStyle,
+        child: const Text('立即更新', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+      ),
+    ];
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final forceUpdate = widget.forceUpdate;
+    final content = widget.content;
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Logo at top-right area
           // Title
           Text(
-            title,
+            widget.title,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             textAlign: TextAlign.center,
           ),
@@ -230,7 +339,7 @@ class _UpdateDialogContent extends StatelessWidget {
                     children: [
                       Text('当前版本', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
                       const SizedBox(height: 2),
-                      Text('v$currentVersion ($currentBuild)', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                      Text('v${widget.currentVersion} (${widget.currentBuild})', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -244,7 +353,7 @@ class _UpdateDialogContent extends StatelessWidget {
                     children: [
                       Text('最新版本', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
                       const SizedBox(height: 2),
-                      Text('v$latestVersion ($latestBuild)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: theme.colorScheme.primary)),
+                      Text('v${widget.latestVersion} (${widget.latestBuild})', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: theme.colorScheme.primary)),
                     ],
                   ),
                 ),
@@ -284,226 +393,86 @@ class _UpdateDialogContent extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 4),
-        ],
-      ),
-      actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-      actions: [
-        // Buttons in a Row (横排)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!forceUpdate)
-                OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: theme.colorScheme.onSurfaceVariant,
-                    side: BorderSide(color: theme.colorScheme.outlineVariant),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  ),
-                  child: const Text('稍后', style: TextStyle(fontSize: 15)),
-                ),
-              if (!forceUpdate) const SizedBox(width: 12),
-              FilledButton(
-                onPressed: () {
-                  UpdateService._downloadWithProgress(context, androidUrl, forceUpdate);
-                },
-                style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                ),
-                child: Text('立即更新', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              ),
-            ],
-          ),
-        ),
-        // "更新失败点击这里" 放在按钮下方
-        GestureDetector(
-          onTap: () async {
-            if (androidUrl.isNotEmpty) {
-              final uri = Uri.tryParse(androidUrl);
-              if (uri != null && await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.only(top: 4, bottom: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.error_outline, size: 14, color: theme.colorScheme.primary),
-                const SizedBox(width: 4),
-                Text(
-                  '更新失败点击这里',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: theme.colorScheme.primary,
-                    decoration: TextDecoration.underline,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Download Progress Dialog
-// ---------------------------------------------------------------------------
-class _UpdateProgressDialog extends StatefulWidget {
-  final String url;
-  final File file;
-  final String downloadUrl;
-  final bool forceUpdate;
-
-  const _UpdateProgressDialog({
-    required this.url,
-    required this.file,
-    required this.downloadUrl,
-    required this.forceUpdate,
-  });
-
-  @override
-  State<_UpdateProgressDialog> createState() => _UpdateProgressDialogState();
-}
-
-class _UpdateProgressDialogState extends State<_UpdateProgressDialog> {
-  double _progress = 0;
-  bool _isDownloading = true;
-  bool _hasError = false;
-  CancelToken? _cancelToken;
-
-  @override
-  void initState() {
-    super.initState();
-    _startDownload();
-  }
-
-  @override
-  void dispose() {
-    _cancelToken?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _startDownload() async {
-    _cancelToken = CancelToken();
-    try {
-      await Dio().download(
-        widget.downloadUrl,
-        widget.file.path,
-        cancelToken: _cancelToken,
-        onReceiveProgress: (received, total) {
-          if (total > 0 && mounted) {
-            setState(() => _progress = received / total);
-          }
-        },
-      );
-      if (!mounted) return;
-      setState(() => _isDownloading = false);
-      // Close progress dialog
-      Navigator.of(context).pop();
-      AppDialog.toast('下载完成，正在安装...');
-      await OpenFilex.open(widget.file.path, type: 'application/vnd.android.package-archive');
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.cancel) return;
-      if (mounted) setState(() => _hasError = true);
-    } catch (e) {
-      if (mounted) setState(() => _hasError = true);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    // 强更时禁止返回键关闭进度弹窗，防止绕过强更
-    return PopScope(
-      canPop: !widget.forceUpdate,
-      child: AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Logo
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(Icons.cloud, color: Colors.white, size: 32),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _hasError ? '更新失败' : (_isDownloading ? '正在下载...' : '下载完成'),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 16),
-          if (!_hasError) ...[
+          // 下载进度（内嵌在弹窗底部，不再单开弹窗）
+          if (_started && !_hasError) ...[
+            const SizedBox(height: 12),
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: LinearProgressIndicator(
-                value: _progress > 0 ? _progress : null,
+                value: _done ? 1 : (_progress > 0 ? _progress : null),
                 minHeight: 6,
                 backgroundColor: theme.colorScheme.surfaceContainerHighest,
                 valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
-              '${(_progress * 100).toStringAsFixed(1)}%',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: theme.colorScheme.primary),
+              _done ? '下载完成' : '正在下载 ${(_progress * 100).toStringAsFixed(1)}%',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: theme.colorScheme.primary),
             ),
-          ] else ...[
-            const Icon(Icons.error_outline, size: 40, color: Colors.red),
-            const SizedBox(height: 8),
-            const Text('下载失败，请重试', style: TextStyle(fontSize: 14, color: Colors.red)),
+          ],
+          if (_hasError) ...[
+            const SizedBox(height: 12),
+            const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline, size: 16, color: Colors.red),
+                SizedBox(width: 6),
+                Text('下载失败，请重试', style: TextStyle(fontSize: 13, color: Colors.red)),
+              ],
+            ),
           ],
           const SizedBox(height: 4),
         ],
       ),
-      actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+      actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
       actions: [
-        if (_hasError)
-          FilledButton(
-            onPressed: () {
-              setState(() {
-                _hasError = false;
-                _progress = 0;
-                _isDownloading = true;
-              });
-              _startDownload();
-            },
-            style: FilledButton.styleFrom(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        // 包成单个 Column，固定「按钮行在上、更新失败链接在下」右对齐，
+        // 避免 AlertDialog 的 OverflowBar 在按钮较窄时把两者挤到同一行
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: _buildActionButtons(theme),
+              ),
             ),
-            child: const Text('重新下载', style: TextStyle(fontSize: 15)),
-          ),
-        if (!_hasError && _isDownloading && !widget.forceUpdate)
-          OutlinedButton(
-            onPressed: () {
-              _cancelToken?.cancel();
-              Navigator.of(context).pop();
-            },
-            style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            // "更新失败点击这里" 放在按钮下方
+            GestureDetector(
+              onTap: () async {
+                if (widget.androidUrl.isNotEmpty) {
+                  final uri = Uri.tryParse(widget.androidUrl);
+                  if (uri != null && await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                }
+              },
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.error_outline, size: 14, color: theme.colorScheme.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      '更新失败点击这里',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: theme.colorScheme.primary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            child: const Text('取消', style: TextStyle(fontSize: 15)),
-          ),
+          ],
+        ),
       ],
-      ),
     );
   }
 }
+

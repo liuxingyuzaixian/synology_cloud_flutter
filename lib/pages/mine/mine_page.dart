@@ -7,13 +7,12 @@ import '../../components/app_dialog.dart';
 import '../../components/debug_tools.dart';
 import '../../network/dsm_api.dart';
 import '../../utils/app_adaptive.dart';
-import '../../utils/app_logger.dart';
 import '../../utils/app_preferences.dart';
+import '../../utils/cache_manager_util.dart';
 import '../../utils/fly_router.dart';
 import '../../models/server_model.dart';
 import '../../models/webview_entry.dart';
-import '../../utils/license_manager.dart';
-import '../../utils/update_service.dart';
+import 'about_page.dart';
 import 'dashboard_page.dart';
 import 'personal_settings_page.dart';
 import '../license/license_page.dart';
@@ -31,6 +30,7 @@ class _SettingsPageState extends State<SettingsPage> {
   int _titleTapCount = 0;
   DateTime? _titleFirstTap;
   String _appVersion = '...';
+  int? _cacheSize; // null 表示计算中
 
   @override
   void initState() {
@@ -38,6 +38,38 @@ class _SettingsPageState extends State<SettingsPage> {
     _darkMode = AppPreferences.getBool('darkMode');
     _loadWebViewEntries();
     _loadVersion();
+    _loadCacheSize();
+  }
+
+  Future<void> _loadCacheSize() async {
+    try {
+      final size = await CacheManagerUtil.totalCacheSize();
+      if (mounted) setState(() => _cacheSize = size);
+    } catch (_) {
+      if (mounted) setState(() => _cacheSize = 0);
+    }
+  }
+
+  Future<void> _clearCache() async {
+    final sizeText = _cacheSize == null ? '' : '，将释放 ${DsmApi.formatSize(_cacheSize!)}B 空间';
+    final confirm = await AppDialog.confirm(
+      title: '清理缓存',
+      message: '将清理图片和视频缓存$sizeText，是否继续？',
+      confirmText: '清理',
+    );
+    if (!confirm) return;
+
+    final close = AppDialog.showLoading(label: '清理中...');
+    try {
+      await CacheManagerUtil.clearCache();
+      close();
+      AppDialog.toast('清理完成');
+    } catch (e) {
+      close();
+      AppDialog.toast('清理失败: $e');
+    }
+    setState(() => _cacheSize = null);
+    _loadCacheSize();
   }
 
   Future<void> _loadVersion() async {
@@ -45,9 +77,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final info = await PackageInfo.fromPlatform();
       final versionStr = info.version; // e.g. "0.0.2"
       final buildNum = int.tryParse(info.buildNumber) ?? 0;
-      // split-per-abi 时 versionCode = ABI * 1000 + rawBuildNum，取模还原原始构建号
-      final rawBuild = buildNum > 1000 ? buildNum % 1000 : buildNum;
-      if (mounted) setState(() => _appVersion = rawBuild > 0 ? '$versionStr+$rawBuild' : versionStr);
+      if (mounted) setState(() => _appVersion = buildNum > 0 ? '$versionStr+$buildNum' : versionStr);
     } catch (_) {
       if (mounted) setState(() => _appVersion = '0.0.2'); // fallback
     }
@@ -65,23 +95,6 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _darkMode = value);
     AppPreferences.putBool('darkMode', value);
     darkModeNotifier.value = value;
-  }
-
-  void _checkUpdate(BuildContext context) => UpdateService.checkForUpdate(context, force: true);
-
-  Future<void> _uploadDiagLog() async {
-    final close = AppDialog.showLoading(label: '正在上传日志...');
-    try {
-      final ok = await AppLogger.upload(
-        deviceId: LicenseManager().deviceId,
-        remark: '用户从「我的」手动上传',
-      );
-      close();
-      AppDialog.toast(ok ? '日志已上传，感谢配合' : '上传失败，请检查网络');
-    } catch (e) {
-      close();
-      AppDialog.toast('上传失败：$e');
-    }
   }
 
   Future<void> _logout() async {
@@ -147,6 +160,12 @@ class _SettingsPageState extends State<SettingsPage> {
               value: _darkMode,
               onChanged: _toggleDarkMode,
             ),
+            _buildNavTile(
+              icon: Icons.cleaning_services_outlined,
+              title: '清理缓存',
+              subtitle: _cacheSize == null ? '计算中...' : '图片和视频缓存 ${DsmApi.formatSize(_cacheSize!)}B',
+              onTap: _clearCache,
+            ),
           ]),
           SizedBox(height: 16.h),
 
@@ -157,19 +176,7 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: Icons.info_outline,
               title: '关于 Synology Cloud',
               subtitle: '版本 $_appVersion',
-              onTap: () => _showAbout(context),
-            ),
-            _buildNavTile(
-              icon: Icons.system_update_outlined,
-              title: '检查更新',
-              subtitle: '点击检测最新版本',
-              onTap: () => _checkUpdate(context),
-            ),
-            _buildNavTile(
-              icon: Icons.upload_file_outlined,
-              title: '上传诊断日志',
-              subtitle: '协助开发者排查问题',
-              onTap: _uploadDiagLog,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage())),
             ),
           ]),
           SizedBox(height: 16.h),
@@ -324,27 +331,6 @@ class _SettingsPageState extends State<SettingsPage> {
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
       onLongPress: onLongPress,
-    );
-  }
-
-
-  void _showAbout(BuildContext context) {
-    showAboutDialog(
-      context: context,
-      applicationName: 'Synology Cloud',
-      applicationVersion: _appVersion,
-      applicationIcon: Container(
-        width: 48.aw,
-        height: 48.aw,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary,
-          borderRadius: BorderRadius.circular(12.r),
-        ),
-        child: Icon(Icons.cloud, color: Colors.white, size: 28.aw),
-      ),
-      children: const [
-        Text('群晖 NAS 云助手，提供照片管理、文件浏览、系统监控等功能。'),
-      ],
     );
   }
 }

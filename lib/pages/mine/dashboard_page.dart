@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../app.dart';
 import '../../components/app_dialog.dart';
@@ -46,6 +47,11 @@ class DashboardPageState extends State<DashboardPage> with RouteAware {
 
   Timer? _autoRefreshTimer;
 
+  // SSH 状态 (null 表示加载中/不可用)
+  bool? _sshEnabled;
+  bool _telnetEnabled = false;
+  String _sshPort = '22';
+
   // ---- 我的应用 (WebViewEntries) ----
   List<WebViewEntry> _appEntries = [];
 
@@ -53,6 +59,7 @@ class DashboardPageState extends State<DashboardPage> with RouteAware {
   void initState() {
     super.initState();
     _loadData();
+    _loadTerminalInfo();
     _startAutoRefresh();
     _loadAppEntries();
   }
@@ -189,6 +196,53 @@ class DashboardPageState extends State<DashboardPage> with RouteAware {
 
   // ==================== 快捷操作 ====================
 
+  /// 读取 SSH/Telnet 状态
+  Future<void> _loadTerminalInfo() async {
+    try {
+      final res = await DsmApi().terminalInfo();
+      if (res['success'] == true && mounted) {
+        final data = res['data'] as Map<String, dynamic>? ?? {};
+        setState(() {
+          _sshEnabled = data['enable_ssh'] == true;
+          _telnetEnabled = data['enable_telnet'] == true;
+          _sshPort = data['ssh_port']?.toString() ?? '22';
+        });
+      }
+    } catch (_) {
+      // 非管理员等无权限场景，保持 null 不展示状态
+    }
+  }
+
+  /// 开关 SSH（开启/关闭均二次确认）
+  Future<void> _toggleSsh() async {
+    final enabled = _sshEnabled;
+    if (enabled == null) return;
+
+    final confirmed = await AppDialog.dangerConfirm(
+      title: enabled ? '关闭 SSH' : '开启 SSH',
+      message: enabled
+          ? '关闭后将无法通过 SSH 连接到 NAS，是否继续？'
+          : '开启 SSH 后可通过终端远程登录 NAS（端口 $_sshPort），是否继续？',
+      confirmText: enabled ? '关闭' : '开启',
+    );
+    if (!confirmed) return;
+
+    final close = AppDialog.showLoading(label: enabled ? '关闭中...' : '开启中...');
+    try {
+      final res = await DsmApi().setTerminal(!enabled, _telnetEnabled, _sshPort);
+      close();
+      if (res['success'] == true) {
+        AppDialog.toast(enabled ? 'SSH 已关闭' : 'SSH 已开启');
+        await _loadTerminalInfo();
+      } else {
+        AppDialog.toast('操作失败: ${res['error']?['code'] ?? '未知错误'}');
+      }
+    } catch (e) {
+      close();
+      AppDialog.toast('操作失败: $e');
+    }
+  }
+
   Future<void> _doPowerAction(String method, String label) async {
     final isShutdown = method == 'shutdown';
     final confirmed = await AppDialog.dangerConfirm(
@@ -226,7 +280,7 @@ class DashboardPageState extends State<DashboardPage> with RouteAware {
 
   Widget _buildBody(ThemeData theme) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildSkeleton();
     }
 
     if (_errorMsg.isNotEmpty) {
@@ -275,6 +329,46 @@ class DashboardPageState extends State<DashboardPage> with RouteAware {
 
           // 底部间距
           SizedBox(height: MediaQuery.of(context).padding.bottom + 8.h),
+        ],
+      ),
+    );
+  }
+
+  // ---- 首次加载骨架屏：模拟卡片布局 ----
+  Widget _buildSkeleton() {
+    Widget skeletonCard({int rows = 3}) => _DashboardCard(
+          icon: Icons.crop_square,
+          title: '占位标题',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < rows; i++)
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 6.h),
+                  child: Row(
+                    children: [
+                      Bone.text(words: 1, fontSize: 13.asp),
+                      const Spacer(),
+                      Bone.text(words: 2, fontSize: 13.asp),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        );
+
+    return Skeletonizer(
+      child: ListView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.symmetric(horizontal: 16.aw, vertical: 12.h),
+        children: [
+          skeletonCard(rows: 4),
+          12.hGap,
+          skeletonCard(rows: 3),
+          12.hGap,
+          skeletonCard(rows: 3),
+          12.hGap,
+          skeletonCard(rows: 2),
         ],
       ),
     );
@@ -764,7 +858,7 @@ class DashboardPageState extends State<DashboardPage> with RouteAware {
               minHeight: 6.h,
               backgroundColor: Colors.grey[200],
               valueColor: AlwaysStoppedAnimation<Color>(
-                percent > 0.9 ? Colors.red : percent > 0.7 ? Colors.orange : Colors.blue,
+                percent > 0.9 ? Colors.red : percent > 0.8 ? Colors.amber : Colors.blue,
               ),
             ),
           ),
@@ -779,7 +873,7 @@ class DashboardPageState extends State<DashboardPage> with RouteAware {
               Text(
                 '${(percent * 100).toStringAsFixed(1)}%',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: percent > 0.9 ? Colors.red : Colors.grey[600],
+                  color: percent > 0.9 ? Colors.red : percent > 0.8 ? Colors.amber : Colors.grey[600],
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -802,8 +896,30 @@ class DashboardPageState extends State<DashboardPage> with RouteAware {
         children: [
           _actionChip(theme, Icons.refresh, '重启', () => _doPowerAction('reboot', '重启')),
           _actionChip(theme, Icons.power_settings_new, '关机', () => _doPowerAction('shutdown', '关机')),
+          _buildSshChip(theme),
         ],
       ),
+    );
+  }
+
+  /// SSH 开关 chip（展示当前开/关状态）
+  Widget _buildSshChip(ThemeData theme) {
+    final enabled = _sshEnabled;
+    final Color color = enabled == null
+        ? Colors.grey
+        : enabled
+            ? Colors.green
+            : Colors.grey;
+    final label = enabled == null
+        ? 'SSH ...'
+        : enabled
+            ? 'SSH 已开启'
+            : 'SSH 已关闭';
+    return ActionChip(
+      avatar: Icon(Icons.terminal, size: 18.r, color: color),
+      label: Text(label, style: TextStyle(color: enabled == true ? Colors.green : null)),
+      onPressed: enabled == null ? null : _toggleSsh,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
     );
   }
 

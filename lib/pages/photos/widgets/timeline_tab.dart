@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'dart:convert';
 
 import '../../../components/CustomScrollBar.dart';
@@ -235,10 +236,48 @@ class TimelineTabState extends State<TimelineTab> {
     return _toPreviewList(_photos);
   }
 
+  /// 首次加载骨架屏：模拟日期分组 + 方格照片墙
+  Widget _buildSkeleton() {
+    final columns = _gridColumns;
+    return Skeletonizer(
+      child: CustomScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        slivers: [
+          for (var group = 0; group < 3; group++) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(12.aw, 16.h, 12.aw, 8.h),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Bone.text(words: 2, fontSize: 15.asp),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: 1.5.w),
+              sliver: SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: columns,
+                  crossAxisSpacing: 1.5.r,
+                  mainAxisSpacing: 1.5.r,
+                  childAspectRatio: 1,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => const Bone(),
+                  childCount: columns * 3,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildSkeleton();
     }
 
     if (_error != null) {

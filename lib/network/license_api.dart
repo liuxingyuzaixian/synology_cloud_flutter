@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import '../models/license_info.dart';
 import '../models/order_info.dart';
 import '../models/plan_info.dart';
+import '../utils/app_preferences.dart';
 import 'api_client.dart';
 
 /// 付费权益后端接口封装（复用 [ApiClient] 的 Dio）。
@@ -21,8 +22,24 @@ class LicenseApi {
 
   static final LicenseApi _instance = LicenseApi._();
 
-  /// 付费权益后端基址（复用 zhanglei.nasfuns.fun 的 SpringBoot）。
-  static const String baseUrl = 'http://zhanglei.nasfuns.fun:4001/api';
+  /// 外网固定根地址（复用 zhanglei.nasfuns.fun 的 SpringBoot）。
+  static const String externalRoot = 'http://zhanglei.nasfuns.fun:4001';
+
+  /// 偏好键：内网模式开关 / 手动输入的内网根地址（调试页可切换，仿运营后台）。
+  static const String prefUseInternal = 'license_use_internal';
+  static const String prefInternalUrl = 'license_internal_url';
+
+  /// 当前生效的服务器根地址（不含 /api）。内网开关开且填了地址时用内网，否则回落外网。
+  static String get serverRoot {
+    if (AppPreferences.getBool(prefUseInternal)) {
+      final url = AppPreferences.getString(prefInternalUrl).trim();
+      if (url.isNotEmpty) return url.replaceAll(RegExp(r'/+$'), '');
+    }
+    return externalRoot;
+  }
+
+  /// 付费权益后端基址。
+  static String get baseUrl => '$serverRoot/api';
 
   /// 内置签名密钥（防篡改用，非绝对安全，见方案 §9）。上线前请替换。
   static const String appSecret = 'nas_license_app_secret_change_me';
@@ -226,5 +243,64 @@ class LicenseApi {
   Future<Map<String, dynamic>> appealStatus(String deviceId,
       {String? traceId}) async {
     return _get('/appeal/status', query: {'deviceId': deviceId}, traceId: traceId);
+  }
+
+  // ==================== 意见反馈 ====================
+
+  /// 偏好键：反馈归属的本地安装标识（首次生成后固定，重装 App 会变）。
+  static const String prefClientId = 'feedback_client_id';
+
+  /// 本安装的反馈客户端标识：首次调用生成（时间戳+安全随机数），持久化后不变。
+  static String get clientId {
+    var id = AppPreferences.getString(prefClientId);
+    if (id.isEmpty) {
+      final rand = Random.secure();
+      final suffix =
+          List.generate(16, (_) => rand.nextInt(16).toRadixString(16)).join();
+      id = 'fc-${DateTime.now().millisecondsSinceEpoch}-$suffix';
+      AppPreferences.putString(prefClientId, id);
+    }
+    return id;
+  }
+
+  /// 提交意见反馈（文字 ≤300 字 + 图片 URL ≤9 张 + 硬件信息快照）。
+  Future<Map<String, dynamic>> submitFeedback({
+    required String content,
+    List<String> images = const [],
+    Map<String, Object?> hardware = const {},
+    String? deviceId,
+    String? traceId,
+  }) async {
+    return _post('/feedback/submit', body: {
+      'clientId': clientId,
+      if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
+      'content': content,
+      'images': images,
+      'hardware': hardware,
+    }, traceId: traceId);
+  }
+
+  /// 我的反馈列表（按本机 clientId，倒序，含 status/adminReply）。
+  Future<List<Map<String, dynamic>>> feedbackList({String? traceId}) async {
+    final tid = traceId ?? newTraceId();
+    final data = await _client.request<dynamic>(
+      '$baseUrl/feedback/list',
+      method: 'GET',
+      queryParameters: {'clientId': clientId},
+      options: _signedOptions('', tid),
+      showErrorToast: false,
+    );
+    if (data is List) {
+      return data
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+    return const [];
+  }
+
+  /// 开发计划与公告（markdown 文本 + 更新时间，后台配置）。
+  Future<Map<String, dynamic>> fetchAnnouncement({String? traceId}) {
+    return _get('/config/announcement', traceId: traceId);
   }
 }

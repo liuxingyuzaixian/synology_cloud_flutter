@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../components/app_dialog.dart';
 import '../../network/api_client.dart';
 import '../../network/dsm_api.dart';
+import '../../network/license_api.dart';
 import '../../utils/app_adaptive.dart';
 import '../../utils/app_preferences.dart';
 import '../../utils/fly_router.dart';
@@ -44,7 +45,9 @@ class _DebugPageState extends State<DebugPage> {
 
   late final TextEditingController _hostController;
   late final TextEditingController _portController;
+  late final TextEditingController _licenseUrlController;
   late bool _proxyEnabled;
+  late bool _licenseUseInternal;
   String _networkResult = '未请求';
   String _permissionResult = '未申请';
   String _deviceInfo = '未获取'; // 设备唯一标识测试结果
@@ -56,12 +59,15 @@ class _DebugPageState extends State<DebugPage> {
     _hostController = TextEditingController(text: AppPreferences.getString(ApiClient.debugIp));
     _portController = TextEditingController(text: AppPreferences.getString(ApiClient.debugPort));
     _proxyEnabled = AppPreferences.getBool(ApiClient.debugIpSwitch);
+    _licenseUrlController = TextEditingController(text: AppPreferences.getString(LicenseApi.prefInternalUrl));
+    _licenseUseInternal = AppPreferences.getBool(LicenseApi.prefUseInternal);
   }
 
   @override
   void dispose() {
     _hostController.dispose();
     _portController.dispose();
+    _licenseUrlController.dispose();
     super.dispose();
   }
 
@@ -72,6 +78,17 @@ class _DebugPageState extends State<DebugPage> {
       port: _portController.text,
     );
     AppDialog.toast('代理配置已保存');
+  }
+
+  Future<void> _saveLicenseNet() async {
+    final url = _licenseUrlController.text.trim();
+    if (url.isNotEmpty && !url.startsWith('http')) {
+      AppDialog.toast('地址需以 http:// 或 https:// 开头');
+      return;
+    }
+    await AppPreferences.putString(LicenseApi.prefInternalUrl, url);
+    setState(() {}); // 刷新「当前生效」显示
+    AppDialog.toast('内网地址已保存，会记住上次输入');
   }
 
   String _resolveSynoToken() {
@@ -380,6 +397,53 @@ class _DebugPageState extends State<DebugPage> {
                   ),
                 ],
               ),
+            ],
+          ),
+          _DebugSection(
+            title: '权益服务网络（公网/内网）',
+            children: [
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('使用内网地址'),
+                subtitle: Text(
+                  '关闭：公网 ${LicenseApi.externalRoot}；开启：使用下方手动输入的内网根地址',
+                  style: TextStyle(fontSize: 12.sp),
+                ),
+                value: _licenseUseInternal,
+                onChanged: (value) async {
+                  if (value && _licenseUrlController.text.trim().isEmpty) {
+                    AppDialog.toast('请先填写内网根地址，如 http://192.168.31.193:4001');
+                    return;
+                  }
+                  setState(() => _licenseUseInternal = value);
+                  await AppPreferences.putBool(LicenseApi.prefUseInternal, value);
+                  AppDialog.toast('已切换为${value ? '内网' : '公网'}，立即生效');
+                },
+              ),
+              SizedBox(height: 8.h),
+              TextField(
+                controller: _licenseUrlController,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: '内网根地址',
+                  hintText: 'http://192.168.31.193:4001',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(height: 14.h),
+              Wrap(
+                spacing: 10.w,
+                runSpacing: 10.h,
+                children: [
+                  FilledButton.icon(
+                    onPressed: _saveLicenseNet,
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('保存内网地址'),
+                  ),
+                ],
+              ),
+              SizedBox(height: 10.h),
+              _infoRow('当前生效', LicenseApi.baseUrl),
             ],
           ),
           _DebugSection(

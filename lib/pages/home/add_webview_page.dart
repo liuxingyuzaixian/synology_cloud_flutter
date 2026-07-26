@@ -250,8 +250,9 @@ class _AddWebViewPageState extends State<AddWebViewPage> {
 
   /// 常用模板列表
   static final _templates = [
-    {'title': 'music-dl', 'url': 'http://zhanglei.nasfuns.fun:7022/music/local_music_page', 'icon': Icons.music_note, 'hideUrl': true},
+    {'title': 'music-dl', 'url': 'http://zhanglei.nasfuns.fun:7024', 'icon': Icons.music_note, 'hideUrl': true},
     {'title': 'omni视频', 'url': 'http://zhanglei.nasfuns.fun:7023', 'icon': Icons.video_library, 'hideUrl': true},
+    {'title': '迅雷', 'url': 'https://pan.xunlei.com/yc/?fromApp=paipai', 'icon': Icons.cloud_download, 'hideUrl': true},
     {'title': '群晖主页', 'url': 'http://BASE_URL:5000', 'icon': Icons.dns},
     {'title': '群晖音乐', 'url': 'http://BASE_URL:5000/?launchApp=SYNO.SDS.AudioStation.Application', 'icon': Icons.library_music},
     {'title': '群晖emby', 'url': 'http://BASE_URL:8096', 'icon': Icons.movie},
