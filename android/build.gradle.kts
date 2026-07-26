@@ -17,6 +17,11 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(":app")
+    // 统一 Java 编译目标为 17，避免与 Kotlin JVM 21 冲突
+    tasks.withType<JavaCompile>().configureEach {
+        sourceCompatibility = "17"
+        targetCompatibility = "17"
+    }
 }
 
 tasks.register<Delete>("clean") {
