@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NasFlow 首页改版方案 · 设计图</title>
+<style>
+  :root{
+    --bg:#EEF1F7; --card:#FFFFFF; --ink:#1B1D21; --ink2:#767E89; --line:#EDF0F5;
+    --blue:#3E8BFF; --blue-soft:#EAF2FF; --green:#2FC173; --green-soft:#E7F7EE;
+    --red:#F5483B; --amber:#F5A623; --purple:#8B5CF6;
+    --r:22px;
+  }
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+  body{margin:0;padding:40px 44px 64px;background:#F6F7FA;color:var(--ink);
+       font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",Arial,sans-serif}
+  h1{font-size:26px;margin:0 0 6px}
+  .sub{font-size:14px;color:var(--ink2);margin:0 0 26px;line-height:1.7;max-width:1180px}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--ink2);margin-bottom:30px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  .row{display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap}
+  .col{width:390px}
+  .cap{font-size:13px;font-weight:600;color:#4B5563;margin:0 0 10px}
+  .cap span{font-weight:400;color:var(--ink2)}
+
+  /* ---------- 手机外框 ---------- */
+  .phone{width:390px;height:844px;background:var(--bg);border-radius:46px;
+         box-shadow:0 24px 60px rgba(20,30,60,.18),0 0 0 10px #1B1D21;overflow:hidden;position:relative}
+  .sb{height:44px;display:flex;align-items:flex-end;justify-content:space-between;
+      padding:0 22px 6px;font-size:13px;font-weight:600}
+  .sb .r{display:flex;gap:5px;align-items:center;font-size:11px;font-weight:500;color:#3C434C}
+  .scroll{position:absolute;top:44px;bottom:0;left:0;right:0;overflow:hidden;padding:0 14px}
+
+  /* ---------- 顶栏 ---------- */
+  .topbar{display:flex;align-items:center;gap:10px;padding:6px 4px 14px}
+  .avatar{width:44px;height:44px;border-radius:50%;overflow:hidden;flex:none;
+          background:linear-gradient(140deg,#8FC3FF,#3E8BFF);
+          display:flex;align-items:center;justify-content:center;color:#fff;font-size:19px;font-weight:600;
+          box-shadow:0 4px 10px rgba(62,139,255,.28)}
+  .who{flex:1;min-width:0}
+  .who b{display:block;font-size:17px;font-weight:600;letter-spacing:.2px;line-height:1.25;
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .who span{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#6B7480;margin-top:2px}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex:none;
+       box-shadow:0 0 0 3px rgba(47,193,115,.16)}
+  .icbtn{width:40px;height:40px;border-radius:50%;flex:none;position:relative;
+         background:rgba(255,255,255,.82);box-shadow:0 2px 8px rgba(28,40,70,.10);
+         display:flex;align-items:center;justify-content:center}
+  .icbtn svg{width:21px;height:21px;stroke:#22262B;stroke-width:1.7;fill:none;
+             stroke-linecap:round;stroke-linejoin:round}
+  .badge{position:absolute;top:-3px;right:-4px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;
+         background:var(--red);color:#fff;font-size:11px;font-weight:600;line-height:19px;text-align:center;
+         border:2px solid #F1F3F8}
+  .badge.blue{background:var(--blue)}
+
+  /* ---------- 卡片通用 ---------- */
+  .card{background:var(--card);border-radius:var(--r);padding:16px;
+        box-shadow:0 6px 18px rgba(28,40,70,.055);margin-bottom:14px}
+  .stitle{display:flex;align-items:center;gap:8px;font-size:15.5px;font-weight:600}
+  .stitle i{width:4px;height:15px;border-radius:2px;background:var(--blue);display:inline-block}
+  .stitle i.g{background:var(--green)} .stitle i.p{background:var(--purple)}
+  .stitle .sp{flex:1}
+  .pill{font-size:12px;color:var(--blue);background:var(--blue-soft);border-radius:13px;padding:5px 11px;font-weight:500}
+  .pill.mute{color:#8A93A0;background:#F2F4F8}
+  .sortchip{font-size:12px;color:var(--blue);display:flex;align-items:center;gap:2px}
+  .chev{width:16px;height:16px;stroke:#C2C8D2;stroke-width:2;fill:none;stroke-linecap:round}
+  .pad{height:100px}
+
+  /* ---------- 设备信息 / 运行状态 ---------- */
+  .duo{display:flex;gap:12px;margin-bottom:14px}
+  .duo .card{flex:1;margin:0}
+  .kv{margin-top:12px}
+  .kv div{display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+          padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+  .kv div:last-child{border-bottom:0}
+  .kv em{font-style:normal;color:#98A0AC}
+  .kv b{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:118px}
+  .ring{position:relative;width:104px;height:104px;margin:6px auto 0}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+  .ring .c em{font-style:normal;font-size:11.5px;color:#98A0AC}
+  .ring .c b{font-size:23px;font-weight:600;color:var(--green)}
+  .duo .stat{display:flex;gap:8px;margin-top:10px}
+  .statbox{flex:1;background:#F7F9FC;border-radius:14px;padding:8px 4px;text-align:center}
+  .statbox b{display:block;font-size:14.5px;font-weight:600;color:var(--green)}
+  .statbox em{font-style:normal;font-size:11px;color:#98A0AC}
+  .live{position:absolute;top:16px;right:16px;width:8px;height:8px;border-radius:50%;background:var(--green)}
+
+  /* ---------- 快捷操作 ---------- */
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px 6px;margin-top:16px}
+  .app{display:flex;flex-direction:column;align-items:center;gap:7px}
+  .app .ico{width:52px;height:52px;border-radius:17px;background:var(--blue-soft);
+            display:flex;align-items:center;justify-content:center}
+  .app svg{width:25px;height:25px;stroke:var(--blue);stroke-width:1.75;fill:none;
+           stroke-linecap:round;stroke-linejoin:round}
+  .app span{font-size:11.5px;color:#3F4650}
+
+  /* ---------- 速率卡 ---------- */
+  .tiles{display:flex;gap:10px;margin:14px 0 6px}
+  .tile{flex:1;border-radius:16px;padding:9px 12px 11px}
+  .tile.b{background:var(--blue-soft)} .tile.g{background:var(--green-soft)}
+  .tile em{font-style:normal;font-size:11.5px;color:#7B8492;display:flex;align-items:center;gap:5px}
+  .tile em i{width:5px;height:5px;border-radius:50%;display:inline-block}
+  .tile.b em i{background:var(--blue)} .tile.g em i{background:var(--green)}
+  .tile b{display:block;font-size:19px;font-weight:600;margin-top:3px;letter-spacing:.2px}
+  .tile.b b{color:var(--blue)} .tile.g b{color:var(--green)}
+  .chart{position:relative;height:118px;margin-top:4px}
+  .chart svg{width:100%;height:100%;display:block}
+  .axis{position:absolute;left:0;font-size:9.5px;color:#AEB6C2;transform:translateY(-50%)}
+  .gl{position:absolute;left:46px;right:6px;border-top:1px dashed #E7EBF2}
+  .thrl{position:absolute;left:46px;right:6px;border-top:1.5px dashed rgba(245,72,59,.55)}
+  .thrl span{position:absolute;right:0;top:-15px;font-size:9.5px;color:#F08C84}
+
+  /* ---------- 进程 / 容器 ---------- */
+  .list{margin-top:14px;display:flex;flex-direction:column;gap:10px}
+  .item{background:#F7F9FC;border-radius:16px;padding:11px 13px;display:flex;align-items:center;gap:10px}
+  .item .t{flex:1;min-width:0}
+  .item .t b{display:block;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .item .t span{display:block;font-size:11.5px;color:#929AA6;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tag{font-size:11px;color:#fff;background:var(--green);border-radius:9px;padding:5px 9px;flex:none;font-weight:500}
+  .tag.b{background:var(--blue)} .tag.a{background:var(--amber)} .tag.g{background:#B9C1CC}
+  .bar{height:4px;border-radius:2px;background:#E7EBF2;overflow:hidden;width:64px;flex:none}
+  .bar i{display:block;height:100%;background:var(--blue);border-radius:2px}
+
+  /* ---------- 存储池 ---------- */
+  .pool{display:flex;gap:12px;margin-top:14px}
+  .pool .p{flex:1;background:#F7F9FC;border-radius:18px;padding:14px 8px 12px;text-align:center}
+  .pool .p b{display:block;font-size:13px;font-weight:600;margin-top:6px}
+  .pool .p span{display:block;font-size:11px;color:#98A0AC;margin-top:3px}
+  .mini{position:relative;width:78px;height:78px;margin:0 auto}
+  .mini svg{transform:rotate(-90deg)}
+  .mini em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+           font-style:normal;font-size:15px;font-weight:600;color:var(--green)}
+
+  /* ---------- 底部玻璃栏 ---------- */
+  .tabbar{position:absolute;left:16px;right:16px;bottom:16px;height:62px;border-radius:31px;
+          background:rgba(255,255,255,.72);backdrop-filter:blur(18px);
+          box-shadow:0 8px 24px rgba(28,40,70,.14),inset 0 0 0 1px rgba(255,255,255,.7);
+          display:flex;align-items:center;justify-content:space-around;padding:0 6px}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;color:#8B939F;flex:1}
+  .tab svg{width:22px;height:22px;stroke:#8B939F;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .tab.on{color:var(--blue)}
+  .tab.on svg{stroke:var(--blue);fill:var(--blue);fill-opacity:.14}
+  .tab.on .k{background:#fff;border-radius:16px;padding:2px 12px;box-shadow:0 2px 6px rgba(62,139,255,.18)}
+
+  /* ---------- 第三屏：消息 + 报警 ---------- */
+  .dim{position:absolute;inset:0;background:rgba(16,20,28,.34)}
+  .sheet{position:absolute;left:0;right:0;bottom:0;height:600px;background:#F6F7FA;
+         border-radius:28px 28px 0 0;padding:14px 14px 0;box-shadow:0 -10px 30px rgba(20,30,50,.18)}
+  .grab{width:36px;height:4px;border-radius:2px;background:#D7DCE5;margin:0 auto 12px}
+  .sheet .hd{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .sheet .hd b{font-size:16px;font-weight:600}
+  .msg{background:#fff;border-radius:18px;padding:12px 13px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start}
+  .msg .m{flex:1;min-width:0}
+  .msg .m b{font-size:13.5px;font-weight:600;display:block}
+  .msg .m p{margin:4px 0 0;font-size:11.5px;color:#7C8492;line-height:1.5;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .msg .m span{font-size:10.5px;color:#AEB6C2;display:block;margin-top:5px}
+  .ndot{width:7px;height:7px;border-radius:50%;background:var(--red);margin-top:6px;flex:none}
+  .notif{background:#fff;border-radius:20px;padding:13px 14px;box-shadow:0 6px 18px rgba(28,40,70,.10);
+         margin-bottom:12px;display:flex;gap:11px}
+  .notif .n{flex:1}
+  .notif .n b{font-size:13px;font-weight:600;display:block}
+  .notif .n p{margin:3px 0 0;font-size:12px;color:#5B636E;line-height:1.5}
+  .notif .n span{font-size:10.5px;color:#AEB6C2;display:block;margin-top:6px}
+  .notif .ic{width:34px;height:34px;border-radius:11px;background:#FFECEA;display:flex;
+             align-items:center;justify-content:center;flex:none}
+  .notif .ic svg{width:19px;height:19px;stroke:var(--red);stroke-width:1.9;fill:none;stroke-linecap:round}
+  .sw{display:flex;align-items:center;justify-content:space-between;padding:13px 2px}
+  .sw+.sw{border-top:1px solid var(--line)}
+  .sw .l b{font-size:14px;font-weight:600;display:block}
+  .sw .l span{font-size:11.5px;color:#929AA6;display:block;margin-top:4px;line-height:1.5;max-width:250px}
+  .toggle{width:44px;height:26px;border-radius:13px;background:var(--green);position:relative;flex:none}
+  .toggle::after{content:"";position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#fff;
+                 box-shadow:0 1px 3px rgba(0,0,0,.2)}
+  .toggle.off{background:#DCE1E9}.toggle.off::after{right:auto;left:3px}
+  .seg{display:flex;gap:6px;margin-top:10px}
+  .seg i{font-style:normal;font-size:11.5px;padding:6px 11px;border-radius:12px;background:#F2F4F8;color:#7C8492}
+  .seg i.on{background:var(--blue-soft);color:var(--blue);font-weight:600}
+
+  /* ---------- 通知动作按钮（忽略 N 分钟） ---------- */
+  .nact{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .nact span{font-size:11.5px;color:var(--blue);background:var(--blue-soft);
+             border-radius:9px;padding:5px 10px;font-weight:600}
+  .notif.alert{box-shadow:0 6px 18px rgba(245,72,59,.16),inset 0 0 0 1px rgba(245,72,59,.22)}
+
+  /* ---------- 第七屏：进程处置（单选 + 暂停/杀掉 + 高危二次确认） ---------- */
+  .pbar{display:flex;align-items:center;gap:10px;padding:6px 2px 12px}
+  .back{width:34px;height:34px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(31,44,72,.10);
+        display:flex;align-items:center;justify-content:center;flex:none}
+  .back svg{width:18px;height:18px;stroke:#22262B;stroke-width:2;fill:none;stroke-linecap:round}
+  .pbar b{font-size:17px;font-weight:600}
+  .alertband{background:#FFECEA;border-radius:14px;padding:10px 12px;display:flex;gap:9px;align-items:flex-start;margin-bottom:12px}
+  .alertband svg{width:18px;height:18px;stroke:var(--red);stroke-width:1.9;fill:none;flex:none;stroke-linecap:round;margin-top:1px}
+  .alertband b{font-size:12.5px;color:#C0342C;display:block;font-weight:600}
+  .alertband span{font-size:11px;color:#A85349;display:block;margin-top:2px;line-height:1.5}
+  .item.sel{box-shadow:inset 0 0 0 1.6px var(--blue);background:#fff}
+  .item.lock{opacity:.5}
+  .rd{width:19px;height:19px;border-radius:50%;border:1.6px solid #C6CDD8;flex:none;position:relative;background:#fff}
+  .item.sel .rd{border-color:var(--blue)}
+  .item.sel .rd::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--blue)}
+  .cmd{font-size:10.5px;color:#8B93A0;font-family:Menlo,ui-monospace,monospace;margin-top:3px;
+       white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .abar{position:absolute;left:0;right:0;bottom:0;background:rgba(255,255,255,.94);
+        border-top:1px solid var(--line);padding:11px 14px 24px}
+  .abar .tip{font-size:10.5px;color:#98A0AC;margin:0 0 8px;line-height:1.45}
+  .abtns{display:flex;gap:10px}
+  .gbtn{flex:1;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+        gap:6px;font-size:14px;font-weight:600;color:#fff}
+  .gbtn.b{background:var(--blue)} .gbtn.r{background:var(--red)}
+  .gbtn.dis{background:#EDF0F5;color:#AEB6C2}
+  .gbtn svg{width:17px;height:17px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round}
+  .cfm{position:absolute;left:14px;right:14px;bottom:14px;background:#fff;border-radius:22px;padding:16px 16px 15px;
+       box-shadow:0 16px 44px rgba(20,30,50,.30)}
+  .cfm h4{margin:0;font-size:15.5px;font-weight:600}
+  .cfm .why{font-size:11.5px;color:#A85349;margin:5px 0 10px;line-height:1.5}
+  .r2{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:11.5px;padding:7px 0;border-bottom:1px solid var(--line)}
+  .r2 em{font-style:normal;color:#98A0AC;flex:none}
+  .r2 b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .r2 b.m{font-family:Menlo,ui-monospace,monospace;font-size:10.5px;font-weight:500;color:#5B636E}
+  .cbox{display:flex;align-items:flex-start;gap:8px;margin-top:12px;font-size:11.5px;color:#5B636E;line-height:1.5}
+  .cbox i{width:17px;height:17px;border-radius:5px;background:var(--red);flex:none;margin-top:1px;position:relative}
+  .cbox i::after{content:"";position:absolute;left:5.5px;top:2.5px;width:4px;height:8px;
+                 border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .pin{display:flex;gap:7px;align-items:center;margin-top:12px}
+  .pin u{font-size:11px;color:#98A0AC;text-decoration:none;margin-right:2px;line-height:1.4}
+  .pin span{width:32px;height:38px;border-radius:11px;background:#F2F4F8;display:flex;align-items:center;
+            justify-content:center;font-size:16px;font-weight:600;color:#22262B}
+  .pin span.cur{box-shadow:inset 0 0 0 1.6px var(--blue);color:#C6CDD8}
+  .cbtns{display:flex;gap:10px;margin-top:14px}
+  .cbtn{flex:1;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+        font-size:14px;font-weight:600}
+  .cbtn.c{background:#F2F4F8;color:#5B636E}
+  .cbtn.d{background:#EDF0F5;color:#AEB6C2}
+
+  /* ---------- 深色色板（同一套语义色，只换底、字、分隔线） ---------- */
+  /* body 上的 color 已经解析成浅色值并被继承，深色框必须自己再声明一次，
+     否则卡片标题、数值这些没显式着色的文字会黑底黑字看不见。 */
+  .dark{--bg:#0E1116;--card:#1A1E26;--ink:#EDF1F7;--ink2:#8B95A4;--line:#252A34;
+        --blue:#4C93FF;--blue-soft:#18263E;--green:#3CCF81;--green-soft:#15281F;
+        color:var(--ink)}
+  .dark .sb{color:#E7ECF4}
+  .dark .sb .r{color:#9AA5B4}
+  .dark .who b{color:#EDF1F7}
+  .dark .who span{color:#939EAE}
+  .dark .icbtn{background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(255,255,255,.09)}
+  .dark .icbtn svg{stroke:#E7ECF4}
+  .dark .badge{border-color:#0E1116}
+  .dark .card{box-shadow:0 6px 18px rgba(0,0,0,.38)}
+  .dark .kv em,.dark .ring .c em,.dark .statbox em,.dark .app span{color:#8B95A4}
+  .dark .kv div,.dark .sw{border-color:var(--line)}
+  .dark .ring svg circle:first-child,.dark .mini svg circle:first-child{stroke:#252A34}
+  .dark .statbox,.dark .item,.dark .pool .p{background:#141821}
+  .dark .item .t span{color:#7F8894}
+  .dark .app .ico{box-shadow:inset 0 0 0 1px rgba(76,147,255,.16)}
+  .dark .tile em{color:#93A0B2}
+  .dark .axis{color:#6F7A89}
+  .dark .gl{border-top-color:#242A35}
+  .dark .thrl{border-top-color:rgba(245,72,59,.7)}
+  .dark .thrl span{color:#FF9C95}
+  .dark .bar{background:#2A303C}
+  .dark .pill.mute{color:#939EAE;background:#20252F}
+  .dark .seg i{background:#20252F;color:#939EAE}
+  .dark .seg i.on{background:#18263E;color:var(--blue)}
+  .dark .tabbar{background:rgba(20,24,31,.72);
+                box-shadow:0 8px 24px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.08)}
+  .dark .tab,.dark .tab svg{color:#8B95A4;stroke:#8B95A4}
+  .dark .tab.on .k{background:#232B3A;box-shadow:none}
+
+  /* ---------- 逐屏导航 + 分屏导出（手机上看不糊就靠这两条） ---------- */
+  .nav{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:-6px 0 26px;font-size:13px}
+  .nav b{font-weight:600;color:#4B5563;margin-right:2px}
+  .nav a{color:var(--blue);background:var(--blue-soft);border-radius:11px;padding:6px 12px;
+         text-decoration:none;font-weight:500}
+  .nav a.ghost{color:#8A93A0;background:#F2F4F8}
+  /* #1~#6：只留那一屏（手机上 1:1 矢量显示）；#shot1~#shot6：同上但连导航一起隐掉，供截图导出 */
+  body.solo{padding:16px 16px 18px}
+  body.solo .row{display:block}
+  body.solo h1,body.solo .sub,body.solo .legend,body.solo .notes,body.solo table,
+  body.solo .col:not(.on){display:none}
+  body.solo.shot .nav{display:none}
+
+  /* ---------- 说明区 ---------- */
+  .notes{margin-top:16px;font-size:12.5px;color:#5B636E;line-height:1.75;background:#fff;
+         border-radius:18px;padding:14px 16px;box-shadow:0 6px 18px rgba(28,40,70,.05)}
+  .notes b{color:var(--ink)}
+  .notes ul{margin:0;padding-left:18px}
+  .notes li{margin:5px 0}
+  table{border-collapse:collapse;width:100%;max-width:1724px;margin-top:34px;font-size:12.5px;
+        background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 6px 18px rgba(28,40,70,.05)}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#F7F9FC;font-size:12px;color:#6B7480;font-weight:600}
+  td code{background:#F2F4F8;padding:1px 5px;border-radius:5px;font-size:11.5px}
+  .ok{color:var(--green);font-weight:600}.warn{color:var(--amber);font-weight:600}.new{color:var(--blue);font-weight:600}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="ab" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3E8BFF" stop-opacity=".22"/><stop offset="1" stop-color="#3E8BFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2FC173" stop-opacity=".22"/><stop offset="1" stop-color="#2FC173" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="ar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F5483B" stop-opacity=".20"/><stop offset="1" stop-color="#F5483B" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<h1>NasFlow 首页改版方案（设计图 v2，26.10.31 修订）</h1>
+<p class="sub">
+  保留我们已有的能力（下拉刷新、传输入口、可配置宫格、频率滑块、玻璃底栏），把首页从「信息挤在一张卡里」改成
+  <b>顶栏身份区 + 双信息卡 + 蓝色调快捷宫格 + 五张实时卡</b>的纵向流。所有模块的数据来源都是本项目里已经在调的 DSM 接口，
+  不引入新依赖；未核实的字段在下面的表格里单独标出。
+</p>
+<p class="sub" style="margin-top:-14px">
+  <b>v2 改了三处</b>：① 顶栏不放型号，型号进「设备信息卡」（已定）；② 宫格与底栏功能<b>重复照放</b>（已定）；
+  ③ 新增<b>深色模式两屏</b>（⑤⑥，已定同期做）。守护判定从「按秒」改成<b>按轮询次数</b>，报警通知上多了四个「忽略」按钮（第 ③④ 屏）。
+</p>
+<div class="legend">
+  <div><i style="background:var(--blue)"></i>主色 / 读方向</div>
+  <div><i style="background:var(--green)"></i>正常 / 写方向</div>
+  <div><i style="background:var(--red)"></i>未读与报警</div>
+  <div><i style="background:var(--purple)"></i>进程类标题条</div>
+  <div><i style="background:#EAF2FF;border:1px solid #D5E5FF"></i>图标底板（统一浅蓝）</div>
+</div>
+<div class="nav">
+  <b>手机上逐屏看（点一下只留这一屏，矢量放大不糊）：</b>
+  <a href="#1">① 上半屏</a><a href="#2">② 曲线</a><a href="#3">③ 守护设置</a>
+  <a href="#4">④ 消息与通知</a><a href="#5">⑤ 深色 · 上半屏</a><a href="#6">⑥ 深色 · 曲线</a>
+  <a href="#7">⑦ 进程处置</a>
+  <a href="./home_v3_mockup.html" class="ghost">看整版</a>
+</div>
+
+<div class="row">
+
+  <!-- ======================= 第一屏 ======================= -->
+  <div class="col">
+    <p class="cap">① 首页 · 上半屏 <span>（身份区 / 设备信息 / 运行状态 / 快捷操作）</span></p>
+    <div class="phone">
+      <div class="sb"><span>18:35</span><span class="r">5G&nbsp;&nbsp;70%</span></div>
+      <div class="scroll">
+        <div class="topbar">
+          <div class="avatar">张</div>
+          <div class="who">
+            <b>zhanglei</b>
+            <span><i class="dot"></i>直连 · zhanglei.nasfuns.fun</span>
+          </div>
+          <!-- 26.10.31 定稿：传输在消息（铃铛）前面，顺序不许变；传输沿用现有那个图标与动效，
+               只把「蓝色徽标」换成红点数字＝进行中任务数（消息未读同样是红点数字） -->
+          <div class="icbtn">
+            <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.9-3"/><path d="M4 13a8 8 0 0 0 14.9 3"/><path d="M4 7v4h4"/><path d="M20 17v-4h-4"/></svg>
+            <span class="badge">2</span>
+          </div>
+          <div class="icbtn">
+            <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="badge">12</span>
+          </div>
+        </div>
+
+        <div class="duo">
+          <div class="card">
+            <div class="stitle">设备信息<span class="sp"></span></div>
+            <div class="kv">
+              <div><em>名称</em><b>DSM</b></div>
+              <div><em>型号</em><b>DS918+</b></div>
+              <div><em>IP</em><b>192.168.31.141</b></div>
+              <div><em>运行时间</em><b>5小时2分</b></div>
+            </div>
+          </div>
+          <div class="card" style="position:relative">
+            <div class="stitle">运行状态<span class="sp"></span></div>
+            <i class="live"></i>
+            <div class="ring">
+              <svg width="104" height="104" viewBox="0 0 104 104">
+                <circle cx="52" cy="52" r="44" stroke="#EDF0F5" stroke-width="9" fill="none"/>
+                <circle cx="52" cy="52" r="44" stroke="#2FC173" stroke-width="9" fill="none"
+                        stroke-linecap="round" stroke-dasharray="276.5" stroke-dashoffset="273.7"/>
+              </svg>
+              <div class="c"><em>CPU</em><b>1%</b></div>
+            </div>
+            <div class="stat">
+              <div class="statbox"><b>16%</b><em>内存</em></div>
+              <div class="statbox"><b>43°C</b><em>温度</em></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="stitle"><i></i>快捷操作<span class="sp"></span><span class="pill mute">可编辑</span></div>
+          <div class="grid">
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><path d="M3 7h13l5 5v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M6 4h4"/></svg></div><span>文件</span></div>
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8.5" cy="10" r="1.6"/><path d="M21 16l-5-5-6 7"/></svg></div><span>相册</span></div>
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg></div><span>音乐</span></div>
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5l5 2.5-5 2.5z"/></svg></div><span>影视</span></div>
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 8l8-4 8 4-8 4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg></div><span>Docker</span></div>
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2.5"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></div><span>虚拟机</span></div>
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h3l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M8 13h8"/></svg></div><span>套件中心</span></div>
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg></div><span>更多</span></div>
+          </div>
+        </div>
+
+        <div class="card" style="padding-bottom:14px">
+          <div class="stitle"><i class="g"></i>实时网络速率<span class="sp"></span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
+          <div class="tiles">
+            <div class="tile b"><em><i></i>下载</em><b>10.6 KB/s</b></div>
+            <div class="tile g"><em><i></i>上传</em><b>26.3 KB/s</b></div>
+          </div>
+          <div style="font-size:11px;color:#AEB6C2;text-align:center;padding-top:6px">↓ 曲线见下一屏（同一张卡，继续下滑）</div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab on"><span class="k"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></span>首页</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>文件</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8.5" cy="10" r="1.6"/><path d="M21 16l-5-5-6 7"/></svg>相册</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>音乐</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>我的</div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <b>这一屏改了什么</b>
+      <ul>
+        <li>顶栏：<b>头像</b>（本地自选 → 账号首字母；NAS 端头像 <code>SYNO.Personal.Profile.Photo</code> 在抓包的 API 注册表里确认存在，但 method 与上传参数没实测过，组件先留了参数位）+ 用户名 + 连接状态行；右侧只留<b>传输</b>与<b>消息（铃铛）</b>两个圆形按钮，<b>传输在前</b>、<b>不放刷新</b>（下拉刷新已有）。</li>
+        <li>搜索框从顶栏挪到宫格上方一条细入口（顶栏已有三样东西，再加胶囊会挤）。</li>
+        <li>设备信息 / 运行状态拆成左右两张卡，运行状态用<b>单环 CPU + 内存/温度两枚小指标</b>，比现在三个环并排更聚焦。</li>
+        <li>宫格图标统一 <b>#3E8BFF 线性图标 + #EAF2FF 底板</b>，一套色板解决「图标五颜六色」的问题。</li>
+        <li>传输按钮上的<b>红点数字</b> = 进行中（running + waiting）任务数（我们已有任务管理器），点击进传输页。<b>图标、动效、点击行为、位置全部沿用现有的，一样没改</b>；只是外面的圆形按钮底是新的，图标自带的细圈关掉，免得叠成两圈。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ======================= 第二屏 ======================= -->
+  <div class="col">
+    <p class="cap">② 首页 · 中部 <span>（网络曲线 / 磁盘曲线 / 容器）</span></p>
+    <div class="phone">
+      <div class="sb"><span>18:36</span><span class="r">5G&nbsp;&nbsp;70%</span></div>
+      <div class="scroll">
+        <div class="card">
+          <div class="stitle"><i class="g"></i>实时网络速率<span class="sp"></span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
+          <div class="tiles">
+            <div class="tile b"><em><i></i>下载</em><b>10.6 KB/s</b></div>
+            <div class="tile g"><em><i></i>上传</em><b>26.3 KB/s</b></div>
+          </div>
+          <div class="chart">
+            <span class="axis" style="top:8px">146.5 KB/s</span><span class="gl" style="top:8px"></span>
+            <span class="axis" style="top:56px">73.2 KB/s</span><span class="gl" style="top:56px"></span>
+            <span class="axis" style="top:106px">0 B/s</span>
+            <svg viewBox="0 0 320 118" preserveAspectRatio="none">
+              <path d="M46 108 L60 96 L74 104 L88 100 L104 108 L118 62 L132 106 L146 102 L160 108 L176 104 L190 108 L204 96 L218 106 L232 108 L246 100 L262 106 L276 108 L290 98 L304 104 L316 100 L316 112 L46 112 Z" fill="url(#ab)"/>
+              <path d="M46 108 L60 78 L74 96 L88 92 L104 106 L118 104 L132 44 L146 102 L160 104 L176 90 L190 106 L204 104 L218 70 L232 100 L246 104 L262 88 L276 102 L290 66 L304 96 L316 84" fill="none" stroke="#2FC173" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M46 108 L60 96 L74 104 L88 100 L104 108 L118 62 L132 106 L146 102 L160 108 L176 104 L190 108 L204 96 L218 106 L232 108 L246 100 L262 106 L276 108 L290 98 L304 104 L316 100" fill="none" stroke="#3E8BFF" stroke-width="2" stroke-linejoin="round"/>
+              <circle cx="316" cy="100" r="3" fill="#3E8BFF"/><circle cx="316" cy="84" r="3" fill="#2FC173"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="stitle"><i class="p"></i>磁盘实时读写速度<span class="sp"></span><span class="pill" style="color:#F5483B;background:#FFECEA">已报警 · 8 秒档</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
+          <div class="tiles">
+            <div class="tile b" style="background:#FFECEA"><em><i style="background:#F5483B"></i>读取</em><b style="color:#F5483B">41.1 MB/s</b></div>
+            <div class="tile g" style="background:#FFECEA"><em><i style="background:#F5483B"></i>写入</em><b style="color:#F5483B">52.4 MB/s</b></div>
+          </div>
+          <div class="chart">
+            <span class="axis" style="top:8px">58.6 MB/s</span><span class="gl" style="top:8px"></span>
+            <span class="axis" style="top:56px">29.3 MB/s</span><span class="gl" style="top:56px"></span>
+            <span class="axis" style="top:106px">0 B/s</span>
+            <div class="thrl" style="top:41px"><span style="left:48px;right:auto">报警阈值 40 MB/s</span></div>
+            <svg viewBox="0 0 320 118" preserveAspectRatio="none">
+              <path d="M46 110 L62 110 L78 109 L94 110 L110 109 L126 106 L142 96 L158 72 L174 52 L190 40 L206 30 L222 26 L238 30 L254 26 L270 32 L286 28 L302 34 L310 30 L310 112 L46 112 Z" fill="url(#ar)"/>
+              <path d="M46 110 L62 110 L78 109 L94 110 L110 109 L126 106 L142 96 L158 72 L174 52 L190 40 L206 30 L222 26 L238 30 L254 26 L270 32 L286 28 L302 34 L310 30" fill="none" stroke="#F5483B" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M46 111 L62 110 L78 111 L94 110 L110 111 L126 110 L142 108 L158 96 L174 74 L190 58 L206 48 L222 44 L238 48 L254 42 L270 50 L286 44 L302 52 L310 46" fill="none" stroke="#FF9C95" stroke-width="2" stroke-linejoin="round" stroke-dasharray="0"/>
+              <circle cx="222" cy="26" r="3.5" fill="#F5483B"/><circle cx="310" cy="30" r="3.5" fill="#F5483B"/>
+              <circle cx="310" cy="46" r="3" fill="#FF9C95"/>
+            </svg>
+          </div>
+          <div style="font-size:11px;color:#AEB6C2;padding-top:6px">报警时刻回看：越线的两个样本点标红，横轴 18:53:12 → 18:55:52（20 点 × 8 秒）</div>
+        </div>
+
+        <div class="card">
+          <div class="stitle"><i></i>Docker 容器资源<span class="sp"></span><span class="sortchip">CPU ▾</span><span class="pill">3/5</span></div>
+          <div class="list">
+            <div class="item"><div class="t"><b>nginx-proxy</b><span>CPU 2.4% · 内存 38.2 MB · 运行 5 小时</span></div><div class="bar"><i style="width:12%"></i></div><span class="tag">运行中</span></div>
+            <div class="item"><div class="t"><b>qBittorrent</b><span>CPU 1.1% · 内存 214.6 MB · 运行 5 小时</span></div><div class="bar"><i style="width:6%"></i></div><span class="tag">运行中</span></div>
+            <div class="item"><div class="t"><b>postgres</b><span>CPU 0.3% · 内存 62.0 MB · 运行 2 天</span></div><div class="bar"><i style="width:3%"></i></div><span class="tag">运行中</span></div>
+          </div>
+        </div>
+
+        <div class="pad"></div>
+      </div>
+      <div class="tabbar">
+        <div class="tab on"><span class="k"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></span>首页</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>文件</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8.5" cy="10" r="1.6"/><path d="M21 16l-5-5-6 7"/></svg>相册</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>音乐</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>我的</div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <b>这一屏的三张卡</b>
+      <ul>
+        <li>曲线是 20 点环形缓冲，<b>横轴显示真实时间而不是点序</b>：点间隔 = 首页频率档位，
+            2 秒档覆盖 40 秒、30 秒档覆盖 10 分钟，所以「刚才那波是什么」的跨度由用户自己选的档位决定。</li>
+        <li><b>磁盘读写曲线</b>与守护<b>共用同一份采样</b>，用户在图上就能看出刚才那波写入有没有越线。
+            标题右侧 pill 三态：<code>守护中 · 8 秒</code> / <code>已报警 · 8 秒档</code>（红） / <code>已忽略 14:32</code>。</li>
+        <li><b>阈值线的量程规则</b>（不然会画到图外）：纵轴 = 样本峰值 × 1.1；
+            阈值 ≤ 轴上限时把红色虚线画进图里，否则只在右上角标一行「阈值 40 MB/s · 当前量程外」。
+            平时读写只有 KB/s，硬画 40 MB/s 的线会把曲线压成贴底的一条直线（见第 ⑥ 屏常态版对比）。</li>
+        <li>越线的那两个样本点在图上<b>标红</b>，报警发生后点卡片进资源监控页可回看整段。</li>
+        <li>两张曲线卡的点击区＝整卡，进资源监控页看每网卡 / 每磁盘明细（那页已经补齐）。</li>
+        <li>Docker 卡右上角 <code>3/5</code> = 运行中/总数；无容器时显示空态「暂无运行中的容器」，不占高度。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ======================= 第三屏 ======================= -->
+  <div class="col">
+    <p class="cap">③ 首页 · 底部 <span>（系统进程 / 存储池 / 守护状态镜像卡）</span></p>
+    <div class="phone">
+      <div class="sb"><span>18:37</span><span class="r">5G&nbsp;&nbsp;70%</span></div>
+      <div class="scroll">
+        <div class="card">
+          <div class="stitle"><i class="p"></i>系统进程<span class="sp"></span><span class="sortchip">CPU ▾</span><span class="pill">325</span></div>
+          <div class="list">
+            <div class="item"><div class="t"><b>synoscgi</b><span>PID 11106 · CPU 0.2% · 内存 2.2 MB</span></div><span class="tag">运行中</span></div>
+            <div class="item"><div class="t"><b>synoscgi_SYNO.Core.System.Pr…</b><span>PID 20013 · CPU 0.2% · 内存 1.6 MB</span></div><span class="tag">运行中</span></div>
+          </div>
+        </div>
+
+
+
+        <div class="card">
+          <div class="stitle"><i></i>存储池状态<span class="sp"></span><span class="pill">查看全部</span></div>
+          <div class="pool">
+            <div class="p">
+              <div class="mini"><svg width="78" height="78" viewBox="0 0 78 78"><circle cx="39" cy="39" r="31" stroke="#E7EBF2" stroke-width="8" fill="none"/><circle cx="39" cy="39" r="31" stroke="#2FC173" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="194.8" stroke-dashoffset="148"/></svg><em>24%</em></div>
+              <b>存储空间 1</b><span>2.94 TB / 12.21 TB</span>
+            </div>
+            <div class="p">
+              <div class="mini"><svg width="78" height="78" viewBox="0 0 78 78"><circle cx="39" cy="39" r="31" stroke="#E7EBF2" stroke-width="8" fill="none"/><circle cx="39" cy="39" r="31" stroke="#2FC173" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="194.8" stroke-dashoffset="109"/></svg><em>44%</em></div>
+              <b>存储空间 2</b><span>5.39 TB / 12.21 TB</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="stitle"><i></i>异常读写守护<span class="sp"></span><span class="pill">守护中 · 8 秒</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
+          <div style="margin-top:6px">
+            <div class="sw">
+              <div class="l"><b>已开启</b><span>阈值 40 MB/s · 读写<b style="display:inline">同时</b> · 连续 2 次轮询命中才报；周期跟随首页频率滑块</span></div>
+              <div class="toggle"></div>
+            </div>
+            <div class="sw">
+              <div class="l"><b>忽略一段时间</b><span>真停轮询，期间不判、也不报「失联」；报警通知上可直接点</span>
+                <div class="nact"><span>5 分钟</span><span>15 分钟</span><span>1 小时</span><span>1 天</span></div>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:#AEB6C2;padding-top:8px">本卡只是状态镜像与入口，完整设置在「我的 → 安全与隐私」（深色态见第 ⑥ 屏）</div>
+        </div>
+        <div class="pad"></div>
+      </div>
+      <div class="tabbar">
+        <div class="tab on"><span class="k"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></span>首页</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>文件</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8.5" cy="10" r="1.6"/><path d="M21 16l-5-5-6 7"/></svg>相册</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>音乐</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>我的</div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <b>进程 / 存储池 / 守护</b>
+      <ul>
+        <li>进程卡只放 Top 2~3（本图 2 条示意），<b>CPU/内存 排序切换</b>在标题右侧，计数 pill 点开进资源监控页（已有整页）。</li>
+        <li>存储池超过 2 个时改为横向滑动，避免卡片高度失控。</li>
+        <li>首页这张守护卡<b>只是状态镜像 + 入口</b>（点卡片直达设置页），完整开关放在「我的 → 安全与隐私」——
+            否则首页要替设置页把阈值档位、灵敏模式、后台常驻五行全画一遍，卡片高度压不住。</li>
+        <li>守护判定的<b>单位是轮询次数</b>，周期直接跟着首页那颗频率滑块走（26.10.31 你定的口径）：
+            默认 8 秒档约 16 秒判定，30 秒档约 1 分钟。守护不另开定时器，采样与首页曲线<b>共用同一份环形缓冲</b>，
+            首页可见与否都只有这一路请求。</li>
+        <li><b>「忽略」是真停轮询</b>，不是只压通知：5 分钟 / 15 分钟 / 1 小时 / 1 天，到点自动恢复并立刻采一次样；
+            暂停期间不判定、也不报「守护失联」。这条落盘在原生侧，进程被杀也继续计时。</li>
+        <li>另有一条<b>报警冷却</b>（事件结束后 10 分钟内同一次持续写入只报一次，系统自动）——
+            与手动「忽略」是两回事。传输任务白名单只做提示不静默，属策略细节，放方案文档里。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ======================= 第四屏 ======================= -->
+  <div class="col">
+    <p class="cap">④ 消息中心 <span>（铃铛面板 · 未读水位）</span></p>
+    <div class="phone">
+      <div class="sb"><span>18:40</span><span class="r">5G&nbsp;&nbsp;70%</span></div>
+      <div class="scroll" style="padding:0">
+        <div style="padding:6px 14px 0">
+          <div class="card" style="margin-top:2px;opacity:.5">
+            <div class="stitle"><i></i>异常读写守护<span class="sp"></span></div>
+            <div style="height:26px"></div>
+          </div>
+        </div>
+        <div class="dim"></div>
+        <div class="sheet">
+          <div class="grab"></div>
+          <div class="hd"><b>消息</b><span class="sp" style="flex:1"></span><span class="pill">全部已读</span><span class="pill mute">全部清除</span></div>
+          <div class="msg"><i class="ndot"></i><div class="m"><b>自动封锁</b><p>来自 121.36.xx.xx 的登录尝试失败次数过多，该 IP 已被封锁</p><span>12 分钟前</span></div></div>
+          <div class="msg"><i class="ndot"></i><div class="m"><b>存储空间降级</b><p>存储空间 2 已降级，原因：磁盘 /dev/sata3 无法存取</p><span>28 分钟前</span></div></div>
+          <div class="msg"><div class="m"><b>系统更新</b><p>DSM 7.2.1 更新 4 已就绪，可安装</p><span>今天 09:12</span></div></div>
+          <div class="msg"><div class="m"><b>备份任务完成</b><p>Hyper Backup 任务「照片冷备」已完成，共 1,204 个文件</p><span>昨天 23:40</span></div></div>
+          <div style="font-size:11px;color:#98A0AC;text-align:center;padding:6px 0 14px">未读数 = 比上次查看时间更新的消息条数（本地水位，不依赖服务端已读位）</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <b>铃铛未读数怎么做成「真实未读」</b>
+      <ul>
+        <li>数据源就是我们现在已经在轮询的 DSM 通知列表（<code>SYNO.Core.DSMNotify</code>），每条自带 <code>time</code>。</li>
+        <li>本地存一个<b>已读水位</b>= 上次打开消息面板时刻看到的最大 <code>time</code>。徽标 = <code>time &gt; 水位</code> 的条数：10 条 → 看完归 0 → 下次变 12 条时显示 <b>2</b>，与你要的行为一致。</li>
+        <li>超过 99 显示 <code>99+</code>；点「全部已读」只推水位、不删消息，「全部清除」才调 DSM 的清除接口。</li>
+        <li>守护类报警（下面这条系统通知）同时写进消息列表，水位机制同样生效。</li>
+      </ul>
+    </div>
+
+    <p class="cap" style="margin-top:18px">Android 通知栏样式 <span>（守护报警：正文进首页磁盘卡，四个忽略按钮就地生效）</span></p>
+    <div class="notif alert">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4"/><path d="M12 17.5v.5"/></svg></div>
+      <div class="n">
+        <b>磁盘读写异常：连续 2 次超过阈值</b>
+        <p>写入峰值 52.4 MB/s、读取 41.1 MB/s，均高于设定阈值 40 MB/s（8 秒档 · 约 16 秒判定）。
+           当前有 2 个传输任务在进行，可能是正常写入。</p>
+        <div class="nact"><span>忽略 5 分钟</span><span>忽略 15 分钟</span><span>忽略 1 小时</span><span>忽略 1 天</span></div>
+        <span>NasFlow · 刚刚 · 点忽略会真停轮询，到点自动恢复</span>
+      </div>
+    </div>
+    <div class="notif" style="box-shadow:none;background:#F1F3F8">
+      <div class="ic" style="background:var(--blue-soft)"><svg viewBox="0 0 24 24" style="stroke:var(--blue)"><path d="M4 12h12"/><path d="M12 7l5 5-5 5"/><path d="M20 5v14"/></svg></div>
+      <div class="n">
+        <b>守护运行中</b>
+        <p>前台服务常驻通知（可在此关闭）。最近一次采样：读 1.1 KB/s · 写 104.8 KB/s。</p>
+        <span>持续通知 · 不打扰</span>
+      </div>
+    </div>
+    <div class="notif" style="box-shadow:none;background:#F1F3F8">
+      <div class="ic" style="background:#F2F4F8"><svg viewBox="0 0 24 24" style="stroke:#8A93A0"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></div>
+      <div class="n">
+        <b>守护已暂停 · 剩余 14 分钟</b>
+        <p>忽略期间不向 NAS 发任何请求，也不会报「失联」。到点自动恢复采样。</p>
+        <span>点一下回设置页可「立即恢复」</span>
+      </div>
+    </div>
+  </div>
+  <!-- ======================= 第五屏：深色 · 上半屏 ======================= -->
+  <div class="col">
+    <p class="cap">⑤ 深色模式 · 上半屏 <span>（26.10.31 你定的「深色同期做」）</span></p>
+    <div class="phone dark">
+      <div class="sb"><span>18:52</span><span class="r">5G&nbsp;&nbsp;70%</span></div>
+      <div class="scroll">
+        <div class="topbar">
+          <div class="avatar">张</div>
+          <div class="who">
+            <b>zhanglei</b>
+            <span><i class="dot"></i>直连 · zhanglei.nasfuns.fun</span>
+          </div>
+          <!-- 26.10.31 定稿：传输在消息（铃铛）前面，顺序不许变；传输沿用现有那个图标与动效，
+               只把「蓝色徽标」换成红点数字＝进行中任务数（消息未读同样是红点数字） -->
+          <div class="icbtn">
+            <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.9-3"/><path d="M4 13a8 8 0 0 0 14.9 3"/><path d="M4 7v4h4"/><path d="M20 17v-4h-4"/></svg>
+            <span class="badge">2</span>
+          </div>
+          <div class="icbtn">
+            <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="badge">12</span>
+          </div>
+        </div>
+
+        <div class="duo">
+          <div class="card">
+            <div class="stitle">设备信息<span class="sp"></span></div>
+            <div class="kv">
+              <div><em>名称</em><b>DSM</b></div>
+              <div><em>型号</em><b>DS918+</b></div>
+              <div><em>IP</em><b>192.168.31.141</b></div>
+              <div><em>运行时间</em><b>5小时2分</b></div>
+            </div>
+          </div>
+          <div class="card" style="position:relative">
+            <div class="stitle">运行状态<span class="sp"></span></div>
+            <i class="live"></i>
+            <div class="ring">
+              <svg width="104" height="104" viewBox="0 0 104 104">
+                <circle cx="52" cy="52" r="44" stroke="#EDF0F5" stroke-width="9" fill="none"/>
+                <circle cx="52" cy="52" r="44" stroke="#3CCF81" stroke-width="9" fill="none"
+                        stroke-linecap="round" stroke-dasharray="276.5" stroke-dashoffset="273.7"/>
+              </svg>
+              <div class="c"><em>CPU</em><b style="color:var(--green)">1%</b></div>
+            </div>
+            <div class="stat">
+              <div class="statbox"><b style="color:var(--green)">16%</b><em>内存</em></div>
+              <div class="statbox"><b style="color:var(--green)">43°C</b><em>温度</em></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="stitle"><i></i>快捷操作<span class="sp"></span><span class="pill mute">可编辑</span></div>
+          <div class="grid">
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><path d="M3 7h13l5 5v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M6 4h4"/></svg></div><span>文件</span></div>
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8.5" cy="10" r="1.6"/><path d="M21 16l-5-5-6 7"/></svg></div><span>相册</span></div>
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg></div><span>音乐</span></div>
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5l5 2.5-5 2.5z"/></svg></div><span>影视</span></div>
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 8l8-4 8 4-8 4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg></div><span>Docker</span></div>
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2.5"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></div><span>虚拟机</span></div>
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h3l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M8 13h8"/></svg></div><span>套件中心</span></div>
+            <div class="app"><div class="ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg></div><span>更多</span></div>
+          </div>
+        </div>
+
+        <div class="card" style="padding-bottom:14px">
+          <div class="stitle"><i class="g"></i>实时网络速率<span class="sp"></span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
+          <div class="tiles">
+            <div class="tile b"><em><i></i>下载</em><b>10.6 KB/s</b></div>
+            <div class="tile g"><em><i></i>上传</em><b>26.3 KB/s</b></div>
+          </div>
+          <div style="font-size:11px;color:#6F7A89;text-align:center;padding-top:6px">↓ 曲线与磁盘卡见第 ⑥ 屏（深色常态版）</div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab on"><span class="k"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></span>首页</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>文件</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8.5" cy="10" r="1.6"/><path d="M21 16l-5-5-6 7"/></svg>相册</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>音乐</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>我的</div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <b>深色的规则（不是把白色换成黑就完事）</b>
+      <ul>
+        <li>语义色<b>不跟着翻</b>：蓝仍是主色，只是提亮一档（<code>#3E8BFF → #4C93FF</code>）、
+            绿 <code>#2FC173 → #3CCF81</code>，浅蓝底板从「浅蓝纸」变成「蓝墨」（<code>#EAF2FF → #18263E</code>）。
+            红/琥珀/紫保持原色，用户在两套主题里对「红＝出事」的判断不用重来。</li>
+        <li>底色三档拉开：页面 <code>#0E1116</code> · 卡片 <code>#1A1E26</code> · 卡内小块 <code>#141821</code>，
+            靠亮度而不是描边分层，深色下加一圈灰边框会很脏。</li>
+        <li>阴影从「投影」改成「内描边 + 重投影」：圆形按钮与玻璃底栏深色下用
+            <code>inset 0 0 0 1px rgba(255,255,255,.09)</code>，不然会在黑底上糊成一团看不见边界。</li>
+        <li>图表轨道色（环/网格线）用 <code>#252A34</code>，坐标字 <code>#6F7A89</code>——
+            浅色那套直接搬到深色会亮到抢主曲线的视线。</li>
+        <li>宫格、双卡、底栏的位置与浅色<b>完全一致</b>，两套主题只差色板，切换时不会有布局跳动。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ======================= 第六屏：深色 · 曲线与守护 ======================= -->
+  <div class="col">
+    <p class="cap">⑥ 深色模式 · 曲线与守护 <span>（常态曲线 / 阈值量程 / 设置页两行深色态）</span></p>
+    <div class="phone dark">
+      <div class="sb"><span>18:53</span><span class="r">5G&nbsp;&nbsp;70%</span></div>
+      <div class="scroll">
+        <div class="card">
+          <div class="stitle"><i class="g"></i>实时网络速率<span class="sp"></span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
+          <div class="tiles">
+            <div class="tile b"><em><i></i>下载</em><b style="color:var(--blue)">10.6 KB/s</b></div>
+            <div class="tile g"><em><i></i>上传</em><b style="color:var(--green)">26.3 KB/s</b></div>
+          </div>
+          <div class="chart">
+            <span class="axis" style="top:8px">146.5 KB/s</span><span class="gl" style="top:8px"></span>
+            <span class="axis" style="top:56px">73.2 KB/s</span><span class="gl" style="top:56px"></span>
+            <span class="axis" style="top:106px">0 B/s</span>
+            <svg viewBox="0 0 320 118" preserveAspectRatio="none">
+              <path d="M46 108 L60 96 L74 104 L88 100 L104 108 L118 62 L132 106 L146 102 L160 108 L176 104 L190 108 L204 96 L218 106 L232 108 L246 100 L262 106 L276 108 L290 98 L304 104 L316 100 L316 112 L46 112 Z" fill="url(#ab)"/>
+              <path d="M46 108 L60 78 L74 96 L88 92 L104 106 L118 104 L132 44 L146 102 L160 104 L176 90 L190 106 L204 104 L218 70 L232 100 L246 104 L262 88 L276 102 L290 66 L304 96 L316 84" fill="none" stroke="#3CCF81" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M46 108 L60 96 L74 104 L88 100 L104 108 L118 62 L132 106 L146 102 L160 108 L176 104 L190 108 L204 96 L218 106 L232 108 L246 100 L262 106 L276 108 L290 98 L304 104 L316 100" fill="none" stroke="#4C93FF" stroke-width="2" stroke-linejoin="round"/>
+              <circle cx="316" cy="100" r="3" fill="#4C93FF"/><circle cx="316" cy="84" r="3" fill="#3CCF81"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="stitle"><i class="p"></i>磁盘实时读写速度<span class="sp"></span><span class="pill">守护中 · 8 秒</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
+          <div class="tiles">
+            <div class="tile b"><em><i></i>读取</em><b style="color:var(--blue)">1.1 KB/s</b></div>
+            <div class="tile g"><em><i></i>写入</em><b style="color:var(--green)">104.8 KB/s</b></div>
+          </div>
+          <div class="chart">
+            <span class="axis" style="top:8px">585.9 KB/s</span><span class="gl" style="top:8px"></span>
+            <span class="axis" style="top:56px">293.0 KB/s</span><span class="gl" style="top:56px"></span>
+            <span class="axis" style="top:106px">0 B/s</span>
+            <span style="position:absolute;right:6px;top:2px;font-size:9.5px;color:#FF9C95">阈值 40 MB/s · 当前量程外</span>
+            <svg viewBox="0 0 320 118" preserveAspectRatio="none">
+              <path d="M46 108 L62 40 L78 46 L94 44 L110 78 L120 30 L132 96 L150 104 L170 100 L190 106 L210 98 L230 62 L246 70 L262 96 L278 66 L294 92 L310 84 L310 112 L46 112 Z" fill="url(#ag)"/>
+              <path d="M46 108 L62 40 L78 46 L94 44 L110 78 L120 30 L132 96 L150 104 L170 100 L190 106 L210 98 L230 62 L246 70 L262 96 L278 66 L294 92 L310 84" fill="none" stroke="#3CCF81" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M46 109 L62 108 L78 109 L94 108 L110 109 L120 108 L132 109 L150 108 L170 109 L190 108 L210 109 L230 108 L246 109 L262 108 L278 109 L294 108 L310 109" fill="none" stroke="#4C93FF" stroke-width="2" stroke-linejoin="round"/>
+              <circle cx="310" cy="84" r="3" fill="#3CCF81"/><circle cx="310" cy="109" r="3" fill="#4C93FF"/>
+            </svg>
+          </div>
+          <div style="font-size:11px;color:#6F7A89;padding-top:6px">常态：轴跟样本峰值走，40 MB/s 阈值在量程外只标文字（越线态见第 ② 屏）</div>
+        </div>
+
+        <div class="card">
+          <div class="stitle"><i></i>异常读写守护<span class="sp"></span><span class="pill mute">已忽略 14:32</span></div>
+          <div style="margin-top:6px">
+            <div class="sw">
+              <div class="l"><b>触发阈值</b><span>读写同时达到，连续 2 次轮询命中</span>
+                <div class="seg"><i>10</i><i>20</i><i class="on">40 MB/s</i><i>80</i></div>
+              </div>
+            </div>
+            <div class="sw">
+              <div class="l"><b>暂停中</b><span>恢复前不发任何请求，也不会报失联</span>
+                <div class="nact"><span style="background:#20252F;color:#939EAE">立即恢复</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="pad"></div>
+      </div>
+      <div class="tabbar">
+        <div class="tab on"><span class="k"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></span>首页</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>文件</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8.5" cy="10" r="1.6"/><path d="M21 16l-5-5-6 7"/></svg>相册</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>音乐</div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>我的</div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <b>深色这两屏要确认的点</b>
+      <ul>
+        <li>报警态（第 ② 屏）的红虚线在深色下从 <code>rgba(245,72,59,.55)</code> 提到 <code>.7</code>，
+            标注字 <code>#FF9C95</code>——深色里红线最容易和绿色写曲线糊在一起。本屏是常态，阈值在量程外只标文字。</li>
+        <li>守护 pill 直接把<b>有效周期</b>写出来（「守护中 · 8 秒」），用户改首页滑块时这里跟着变，
+            不用猜判定要多久。忽略期间这颗 pill 换成「已忽略 14:32」（倒计时）。</li>
+        <li>曲线下方那行真实时间跨度，浅色版同样会有——20 点在 30 秒档就是 10 分钟，必须标出来。</li>
+      </ul>
+    </div>
+  </div>
+  <!-- ======================= 第七屏：进程处置 ======================= -->
+  <div class="col">
+    <p class="cap">⑦ 进程处置 <span>（可疑进程单选 · 暂停 / 杀掉 · 高危二次确认）</span></p>
+
+    <div class="phone">
+      <div class="sb"><span>18:41</span><span class="r">5G&nbsp;&nbsp;70%</span></div>
+      <div class="scroll" style="padding:0 14px">
+        <div class="pbar">
+          <span class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+          <b>系统进程</b><span class="sp" style="flex:1"></span>
+          <span class="sortchip">磁盘 ▾</span><span class="pill">325</span>
+        </div>
+
+        <div class="alertband">
+          <svg viewBox="0 0 24 24"><path d="M12 3l9 16H3z"/><path d="M12 9v4"/><circle cx="12" cy="16" r=".6"/></svg>
+          <div>
+            <b>18:31 磁盘读写报警 · 连续 2 次越线</b>
+            <span>读 41.1 / 写 52.4 MB/s，阈值 40 MB/s。下面是同一时刻按磁盘读写排序的进程，
+              <b style="display:inline">读数来自采样均值，不是进程级实测</b>。</span>
+          </div>
+        </div>
+
+        <div class="card" style="padding:14px 14px 10px">
+          <div class="list" style="margin-top:0">
+            <div class="item sel">
+              <span class="rd"></span>
+              <div class="t"><b>smbd</b><span>PID 21307 · 属主 root · CPU 6.2% · 内存 14.1 MB</span>
+                <div class="cmd">/usr/bin/smbd --foreground --no-process-group</div></div>
+              <span class="tag" style="background:var(--red)">读写最高</span>
+            </div>
+            <div class="item lock">
+              <span class="rd" style="border-style:dashed"></span>
+              <div class="t"><b>synoscgi</b><span>PID 11106 · 属主 root · CPU 0.2% · 内存 2.2 MB</span>
+                <div class="cmd">/usr/syno/bin/synoscgi</div></div>
+              <span class="tag" style="background:#DCE1E9;color:#7C8492">关键服务 · 不可处置</span>
+            </div>
+            <div class="item">
+              <span class="rd"></span>
+              <div class="t"><b>synoindexd</b><span>PID 15420 · 属主 root · CPU 1.4% · 内存 31.6 MB</span>
+                <div class="cmd">/usr/syno/bin/synoindexd</div></div>
+              <span class="tag" style="background:#DCE1E9;color:#7C8492">运行中</span>
+            </div>
+            <div class="item">
+              <span class="rd"></span>
+              <div class="t"><b>synovfsd</b><span>PID 14902 · 属主 root · CPU 0.6% · 内存 9.8 MB</span>
+                <div class="cmd">/usr/syno/bin/synovfsd</div></div>
+              <span class="tag" style="background:#DCE1E9;color:#7C8492">运行中</span>
+            </div>
+            <div class="item">
+              <span class="rd"></span>
+              <div class="t"><b>containerd-shim-runc-v2</b><span>PID 27741 · 属主 root · CPU 0.3% · 内存 12.4 MB</span>
+                <div class="cmd">/var/packages/ContainerManager/target/usr/bin/containerd-shim-runc-v2 -namespace …</div></div>
+              <span class="tag" style="background:#DCE1E9;color:#7C8492">运行中</span>
+            </div>
+          </div>
+          <div style="font-size:10.5px;color:#AEB6C2;padding-top:10px;line-height:1.5">
+            进程名与 PID 是示意，落地以实机 <code>Process list</code> 采样为准；
+            保护名单同样从真机采出来的进程名整理，不凭印象写死。
+          </div>
+        </div>
+
+        <div class="abar">
+          <div class="tip">单选一个进程。<b style="display:inline;color:#5B636E">暂停</b>可恢复、保留现场（内存与已打开文件都在，便于事后看它干了什么）；
+            <b style="display:inline;color:#C0342C">杀掉</b>不可撤销，且被 DSM 守护的服务会被自动重新拉起——那种情况请改「停所属套件」。</div>
+          <div class="abtns">
+            <div class="gbtn b"><svg viewBox="0 0 24 24"><rect x="7" y="5" width="3.4" height="14" rx="1"/><rect x="13.6" y="5" width="3.4" height="14" rx="1"/></svg>暂停（可恢复）</div>
+            <div class="gbtn r"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M6.5 6.5l11 11"/></svg>杀掉</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:18px"></div>
+
+    <div class="phone">
+      <div class="sb"><span>18:41</span><span class="r">5G&nbsp;&nbsp;70%</span></div>
+      <div class="scroll" style="padding:0 14px">
+        <div class="pbar" style="opacity:.5">
+          <span class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+          <b>系统进程</b><span class="sp" style="flex:1"></span>
+          <span class="sortchip">磁盘 ▾</span><span class="pill">325</span>
+        </div>
+        <div class="card" style="opacity:.5">
+          <div class="list" style="margin-top:0">
+            <div class="item"><div class="t"><b>smbd</b><span>PID 21307 · 属主 root</span></div></div>
+            <div class="item"><div class="t"><b>synoscgi</b><span>PID 11106 · 属主 root</span></div></div>
+          </div>
+        </div>
+        <div class="dim"></div>
+        <div class="cfm">
+          <h4>确认暂停 <span style="font-family:Menlo,monospace;font-size:14px">smbd</span>（PID 21307）？</h4>
+          <div class="why">暂停 = 给它发 <code>SIGSTOP</code>：进程冻结但不清场，SMB 共享会在它被冻住期间无响应。
+            随时可以在本页点「恢复」。</div>
+          <div class="r2"><em>属主 / 命令行</em><b class="m">root · /usr/bin/smbd --foreground…</b></div>
+          <div class="r2"><em>当前贡献</em><b>读 22.8 MB/s · 写 41.0 MB/s</b></div>
+          <div class="r2"><em>停掉的影响</em><b>电脑/手机的文件共享会断开</b></div>
+          <div class="cbox"><i></i><span>我知道这可能让 NAS 的某项服务中断，并且知道怎么恢复。</span></div>
+          <div class="pin"><u>输入 PID 后三位<br>以确认</u><span>3</span><span>0</span><span class="cur">_</span></div>
+          <div class="cbtns"><div class="cbtn c">取消</div><div class="cbtn d">确认暂停</div></div>
+          <div style="font-size:10px;color:#AEB6C2;margin-top:10px;line-height:1.5">
+            「杀掉」用同一层，但标题、正文与按钮全改红，且末位按钮要长按 1.5 秒才生效。
+            授权状态未就绪时这里不放确认按钮，只给「去开启处置能力」的图文入口（方案 §7.2 路线 C）。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <b>进程处置这条能力怎么落地</b>
+      <ul>
+        <li>这是<b>唯一会改变 NAS 运行状态</b>的动作，比报警本身危险，所以整页的设计前提是先设护栏再谈交互。</li>
+        <li><b>单选</b>（你要求不做多选）：右侧圆点选中后底部两颗按钮才亮；关键服务行置灰虚线圈，点不动。</li>
+        <li><b>「暂停」放在「杀掉」前面</b>且默认引导用它：<code>SIGSTOP</code> 能立刻止血、可撤销，
+            而且把内存和已打开的文件描述符留在原地——上次那种事件里这就是取证材料。</li>
+        <li>确认层要的信息一条都不能少：PID、属主、完整命令行、它现在的读写贡献、<b>停掉会影响什么</b>，
+            再手动输入 PID 后三位。只点一下「确定」不算二次确认。</li>
+        <li>被 DSM 守护的进程<b>杀了会复活</b>（servinfo / synoscgi 那类），文案必须提前讲清楚，
+            否则用户以为「杀不掉 = 功能坏了」。这类目标请改用「停所属套件」（方案 §7.2 路线 B，接口现成）。</li>
+        <li>处置完 3 秒回采一次进程表，把结果如实显示。<b>「已进入停止状态」的字段依据还没实测过</b>
+            （现有 <code>Process list</code> 我们只用到 pid/名字/CPU/内存），
+            拿不到状态字段时这里只能写「疑似已暂停」，不装成确定。</li>
+        <li>报警通知栏<b>不带</b>处置按钮，只有忽略四档；处置只在 App 内、登录后、过了应用锁才可用。</li>
+        <li>实现路线与代价（含「为什么不走 SSH」）见 <code>docs/磁盘异常读写守护方案.md</code> §7：
+            现实做法是 NAS 侧预建一条 root 任务 + App 写一行受校验的指令文件，需要一次性授权。</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= 数据来源核对表 ======================= -->
+<table>
+  <tr><th style="width:130px">首页模块</th><th style="width:300px">数据来源（本项目现有封装）</th><th style="width:120px">现状</th><th>要做什么 / 风险</th></tr>
+  <tr><td>头像</td><td>NAS 端用户头像接口<b>未核实</b>；本地上传走已有相册/文件能力</td><td><span class="warn">需确认</span></td><td>三级兜底：NAS 头像 → 本地自选 → 首字母。NAS 头像的确切接口要一次实机探测才能定，探测不到就用后两级，不影响改版落地。</td></tr>
+  <tr><td>用户名 + 连接状态行</td><td><code>DsmApi().server.account</code>、<code>NetworkTypeUtil.detect</code></td><td><span class="ok">已有</span></td><td>把现在「连接信息区」的公网/内网判定与地址打码能力搬上来，一行显示。</td></tr>
+  <tr><td>铃铛未读数</td><td><code>notifyAll()</code> + <code>NotifyService</code></td><td><span class="ok">已有轮询</span></td><td>红点是布尔值 → 改为条数 + 本地已读水位。轮询频率沿用设备监控档位。</td></tr>
+  <tr><td>传输按钮</td><td>现有 <code>TransferSyncIcon</code> + 传输任务管理器</td><td><span class="ok">已有</span></td><td>顶栏右侧<b>倒数第二</b>个圆钮，顺序是<b>传输 → 消息</b>（你 26.10.31 定的，不要变）；图标、动效、点击、位置全部沿用现有的，只加一枚<b>红点数字</b>＝进行中任务数，无任务时不显示。</td></tr>
+  <tr><td>设备信息卡</td><td><code>SYNO.Core.System</code>（<code>model</code>/<code>up_time</code>）、<code>networkInfo</code>（IP）</td><td><span class="ok">已有</span></td><td>运行时间用现成的 <code>DsmApi.parseUpTime</code> 格式化为「X天X小时」；字段缺失时该行不显示。</td></tr>
+  <tr><td>运行状态卡</td><td><code>SYNO.Core.System.Utilization</code>（cpu/memory）、<code>sys_temp</code></td><td><span class="ok">已有</span></td><td>三环 → 单环 CPU + 两枚指标；温度取系统温度与硬盘最高温的较大值。</td></tr>
+  <tr><td>快捷操作宫格</td><td>现有可配置宫格（含自定义网页应用）</td><td><span class="ok">已有</span></td><td>只改视觉：统一蓝色线性图标 + 浅蓝底板。自定义网页应用用首字母底板，保证色调一致。<b>文件/相册/音乐与底栏重复照放</b>（26.10.31 已定，方便单手）。</td></tr>
+  <tr><td>实时网络速率</td><td><code>Utilization.network</code>（rx/tx），首页已有 20 点历史</td><td><span class="ok">已有</span></td><td>补双曲线图；每网卡明细留在资源监控页。</td></tr>
+  <tr><td>磁盘实时读写</td><td><code>Utilization.disk.total</code>（read_byte/write_byte）</td><td><span class="warn">缺历史</span></td><td>新增 20 点环形缓冲（首页与守护服务共用）；阈值线画在图上。</td></tr>
+  <tr><td>Docker 容器资源</td><td><code>SYNO.Docker.Container</code> / <code>.Resource</code></td><td><span class="warn">套件依赖</span></td><td>Container Manager 未装或版本不符时整卡隐藏（现在已有同类判定）。每容器实时曲线要额外轮询，首页只给一行数值。</td></tr>
+  <tr><td>系统进程</td><td><code>SYNO.Core.System.Process</code> list</td><td><span class="ok">已有</span></td><td>资源监控页已做 Top 30 + 排序；首页取 Top 3 与总数。</td></tr>
+  <tr><td>存储池状态</td><td><code>SYNO.Storage.CGI.Storage</code> load_info（volume）</td><td><span class="ok">已有</span></td><td>解析要同时吃数组与对象两种形态（重装后的机器未实测，资源监控页已按此写法）。</td></tr>
+  <tr><td>异常读写守护</td><td>同上磁盘字段 + Android 前台服务</td><td><span class="new">新功能</span></td><td>详见 <code>docs/磁盘异常读写守护方案.md</code>：判定按<b>连续 2 次轮询</b>（周期跟随首页频率滑块，守护下限 2 秒），通知上有<b>忽略 5 分钟 / 15 分钟 / 1 小时 / 1 天</b>四个按钮，忽略即真停轮询。需要新增原生侧前台服务与通知（用框架 API 发，<b>不引入第三方通知库</b>）。</td></tr>
+</table>
+
+<p class="sub" style="margin-top:26px">
+  落地顺序建议：先做<b>顶栏 + 双卡 + 宫格配色</b>（纯 UI，风险最低，一眼看到效果）→ 再补<b>两张曲线卡与历史缓冲</b> →
+  最后做<b>容器/进程/存储池三张卡</b>（依赖实机核对字段）。守护功能单独一条线，等首页曲线缓冲就位后接上即可。
+</p>
+
+<script>
+  /* 逐屏视图：#1~#6 只留那一屏（手机上 1:1 显示，放大也是矢量）；
+     #shot1~#shot6 连导航条一起隐掉，专门给分屏高清导出用。 */
+  (function () {
+    var cols = Array.prototype.slice.call(document.querySelectorAll('.row > .col'));
+    function apply() {
+      document.body.classList.remove('solo');
+      document.body.classList.remove('shot');
+      cols.forEach(function (c) { c.classList.remove('on'); });
+      var h = (location.hash || '').replace('#', '');
+      var isShot = h.indexOf('shot') === 0;
+      var n = parseInt(isShot ? h.slice(4) : h, 10);
+      if (!(n >= 1 && n <= cols.length)) return;
+      document.body.classList.add('solo');
+      if (isShot) document.body.classList.add('shot');
+      cols[n - 1].classList.add('on');
+    }
+    window.addEventListener('hashchange', apply);
+    apply();
+  })();
+</script>
+
+</body>
+</html>
